@@ -195,4 +195,40 @@ router.get('/my-child/payments', authMiddleware, async (req, res) => {
     }
 });
 
+// Получить список доступных платных занятий
+router.get('/paid-lessons', async (req, res) => {
+    try {
+        const result = await pool.query(`
+      SELECT "ID_Занятия", "Название", "Стоимость", "День_недели", "Время_начала"
+      FROM "Индивидуальные занятия"
+      ORDER BY "День_недели", "Время_начала"
+    `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Запись ребёнка на платное занятие
+router.post('/register-lesson', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'parent') return res.status(403).json({ message: 'Доступ запрещён' });
+    const { lessonId, date } = req.body;
+    if (!lessonId || !date) return res.status(400).json({ message: 'Не хватает данных' });
+    try {
+        const childRes = await pool.query(`
+      SELECT d."ID_Ребенка" FROM "Дети" d
+      JOIN "Родители-дети" rd ON d."ID_Ребенка" = rd."ID_Ребенка"
+      WHERE rd."ID_Родителя" = $1
+    `, [req.user.id]);
+        if (childRes.rows.length === 0) return res.status(404).json({ message: 'Ребёнок не найден' });
+        await pool.query(`
+      INSERT INTO "Посещенные платные занятия" ("ID_Ребенка", "ID_Занятия", "Дата_проведения")
+      VALUES ($1, $2, $3)
+    `, [childRes.rows[0].ID_Ребенка, lessonId, date]);
+        res.json({ success: true, message: 'Запись успешно оформлена' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 module.exports = router;

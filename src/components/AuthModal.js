@@ -14,7 +14,7 @@ function AuthModal({ isOpen, onClose }) {
         passport: '',
         birthDate: '',
         positionId: '',
-        branchId: ''
+        branchId: '',
     });
     const [error, setError] = useState('');
     const { login, register } = useAuth();
@@ -86,14 +86,14 @@ function AuthModal({ isOpen, onClose }) {
                 <form onSubmit={handleSubmit} className="auth-form">
                     <input type="email" name="email" placeholder="Email" value={formData.email} onChange={handleChange} required />
                     <input type="password" name="password" placeholder="Пароль" value={formData.password} onChange={handleChange} required />
-                    <input type="text" name="name" placeholder="Фамилия Имя" value={formData.name} onChange={handleChange} required />
-                    <input type="tel" name="phone" placeholder="Телефон" value={formData.phone} onChange={handleChange} required />
 
                     {!isLogin && (
                         <>
+                            <input type="text" name="name" placeholder="Фамилия Имя" value={formData.name} onChange={handleChange} required />
+                            <input type="tel" name="phone" placeholder="Телефон" value={formData.phone} onChange={handleChange} required />
                             <input type="text" name="address" placeholder="Адрес" value={formData.address} onChange={handleChange} required />
                             {selectedRole === 'parent' && (
-                                <input type="text" name="passport" placeholder="Паспортные данные (серия номер)" value={formData.passport} onChange={handleChange} required />
+                                <input type="text" name="passport" placeholder="Паспортные данные" value={formData.passport} onChange={handleChange} required />
                             )}
                             {selectedRole === 'employee' && (
                                 <>

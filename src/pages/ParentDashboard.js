@@ -9,30 +9,43 @@ function ParentDashboard() {
     const { user } = useAuth();
     const [child, setChild] = useState(null);
     const [relatives, setRelatives] = useState([]);
-    const [individualLessons, setIndividualLessons] = useState([]);
-    const [payments, setPayments] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [activeModal, setActiveModal] = useState(null);
     const [certificates, setCertificates] = useState([]);
     const [vaccinations, setVaccinations] = useState([]);
     const [allergies, setAllergies] = useState([]);
     const [attendance, setAttendance] = useState([]);
+    const [myLessons, setMyLessons] = useState([]); // занятия, на которые записан ребёнок
+    const [payments, setPayments] = useState([]);
+    const [paidLessons, setPaidLessons] = useState([]); // доступные для записи
+    const [loading, setLoading] = useState(true);
+    const [showBooking, setShowBooking] = useState(false);
+    const [selectedLesson, setSelectedLesson] = useState('');
+    const [bookingDate, setBookingDate] = useState('');
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [childRes, familyRes, lessonsRes, paymentsRes, attendanceRes] = await Promise.all([
-                    axios.get(`${API_URL}/children/my-child`),
-                    axios.get(`${API_URL}/children/my-child/family-tree`),
-                    axios.get(`${API_URL}/children/my-child/lessons`),
-                    axios.get(`${API_URL}/children/my-child/payments`),
-                    axios.get(`${API_URL}/children/my-child/attendance`),
+                const token = localStorage.getItem('token');
+                const headers = { Authorization: `Bearer ${token}` };
+                const [childRes, familyRes, certsRes, vaccRes, allergRes, attendRes, myLessRes, paysRes, paidLessRes] = await Promise.all([
+                    axios.get(`${API_URL}/children/my-child`, { headers }),
+                    axios.get(`${API_URL}/children/my-child/family-tree`, { headers }),
+                    axios.get(`${API_URL}/children/my-child/certificates`, { headers }),
+                    axios.get(`${API_URL}/children/my-child/vaccinations`, { headers }),
+                    axios.get(`${API_URL}/children/my-child/allergies`, { headers }),
+                    axios.get(`${API_URL}/children/my-child/attendance`, { headers }),
+                    axios.get(`${API_URL}/children/my-child/lessons`, { headers }),
+                    axios.get(`${API_URL}/children/my-payments`, { headers }),
+                    axios.get(`${API_URL}/children/paid-lessons`, { headers }),
                 ]);
                 setChild(childRes.data);
                 setRelatives(familyRes.data.relatives || []);
-                setIndividualLessons(lessonsRes.data);
-                setPayments(paymentsRes.data);
-                setAttendance(attendanceRes.data);
+                setCertificates(certsRes.data);
+                setVaccinations(vaccRes.data);
+                setAllergies(allergRes.data);
+                setAttendance(attendRes.data);
+                setMyLessons(myLessRes.data);
+                setPayments(paysRes.data);
+                setPaidLessons(paidLessRes.data);
             } catch (err) {
                 console.error(err);
             } finally {
@@ -42,21 +55,24 @@ function ParentDashboard() {
         fetchData();
     }, []);
 
-    const loadModalData = async (type) => {
+    const handleBookLesson = async () => {
+        if (!selectedLesson || !bookingDate) {
+            alert('Выберите занятие и дату');
+            return;
+        }
         try {
-            if (type === 'certificates') {
-                const res = await axios.get(`${API_URL}/children/my-child/certificates`);
-                setCertificates(res.data);
-            } else if (type === 'vaccinations') {
-                const res = await axios.get(`${API_URL}/children/my-child/vaccinations`);
-                setVaccinations(res.data);
-            } else if (type === 'allergies') {
-                const res = await axios.get(`${API_URL}/children/my-child/allergies`);
-                setAllergies(res.data);
-            }
-            setActiveModal(type);
+            const token = localStorage.getItem('token');
+            const headers = { Authorization: `Bearer ${token}` };
+            await axios.post(`${API_URL}/children/register-lesson`, { lessonId: selectedLesson, date: bookingDate }, { headers });
+            alert('Запись успешно оформлена!');
+            setShowBooking(false);
+            setSelectedLesson('');
+            setBookingDate('');
+            // Обновить список занятий ребёнка
+            const updated = await axios.get(`${API_URL}/children/my-child/lessons`, { headers });
+            setMyLessons(updated.data);
         } catch (err) {
-            console.error(err);
+            alert(err.response?.data?.message || 'Ошибка записи');
         }
     };
 
@@ -65,7 +81,7 @@ function ParentDashboard() {
 
     const birthDate = new Date(child["Дата рождения"]);
     const age = Math.floor((new Date() - birthDate) / (1000 * 60 * 60 * 24 * 365));
-    const totalToPay = individualLessons.reduce((sum, l) => sum + (l.price || 0), 0);
+    const totalToPay = myLessons.reduce((sum, l) => sum + (l.Стоимость || 0), 0);
 
     return (
         <div className={styles.parentContainer}>
@@ -85,162 +101,119 @@ function ParentDashboard() {
                     </div>
                 </div>
                 <div className={styles.parentBody}>
-                    <div className={styles.childCard} onClick={() => setActiveModal('child')}>
-                        <div className={styles.childPhoto}>👧</div>
-                        <div className={styles.childName}>{child.Фамилия} {child.Имя}</div>
-                        <div className={styles.childDetails}>{age} лет, группа «{child.Название_Группы}»</div>
-                    </div>
-
+                    {/* Левая колонка */}
                     <div>
-                        <div className={styles.familyTitle}>Моя семья</div>
-                        <div className={styles.familyGrid}>
-                            {relatives.map((rel, idx) => (
-                                <div key={idx} className={styles.relativeCard}>
-                                    <div className={styles.relativeAvatar}>{rel.Имя?.[0] || '?'}</div>
-                                    <div className={styles.relativeInfo}>
-                                        <strong>{rel.Фамилия} {rel.Имя}</strong>
-                                        <span>{rel.Статус}</span>
+                        <div className={styles.childCard}>
+                            <div className={styles.childPhoto}>👧</div>
+                            <div className={styles.childName}>{child.Фамилия} {child.Имя}</div>
+                            <div className={styles.childDetails}>{age} лет, группа «{child.Название_Группы}»</div>
+                            <button className={styles.detailsBtn} onClick={() => alert('Детальная информация будет позже')}>Информация о ребёнке →</button>
+                        </div>
+
+                        <div className={styles.familyCard}>
+                            <div className={styles.familyTitle}>Моя семья</div>
+                            <div className={styles.familyGrid}>
+                                {relatives.map((rel, idx) => (
+                                    <div key={idx} className={styles.relativeCard}>
+                                        <div className={styles.relativeAvatar}>{rel.Имя?.[0] || '?'}</div>
+                                        <div className={styles.relativeInfo}>
+                                            <strong>{rel.Фамилия} {rel.Имя}</strong>
+                                            <span>{rel.Статус}</span>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className={styles.lessonsCard}>
+                            <div className={styles.sectionTitle}>💰 Индивидуальные занятия (ребёнка)</div>
+                            <div className={styles.lessonsGrid}>
+                                {myLessons.map(l => (
+                                    <div key={l.ID_Занятия} className={styles.lessonCard}>
+                                        <span className={styles.lessonName}>{l.Название}</span>
+                                        <span className={styles.lessonPrice}>{l.Стоимость} ₽</span>
+                                    </div>
+                                ))}
+                                {myLessons.length === 0 && <p>Нет записей</p>}
+                            </div>
+                            <div style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>Итого к оплате: {totalToPay} ₽</div>
+                            <button className={styles.detailsBtn} onClick={() => setShowBooking(true)}>+ Записаться на новое занятие</button>
+                        </div>
+
+                        <div className={styles.paymentsCard}>
+                            <div className={styles.sectionTitle}>💳 Мои платежи</div>
+                            <div className={styles.paymentsGrid}>
+                                {payments.map(p => (
+                                    <div key={p.ID_Платежа} className={styles.paymentCard}>
+                                        <span className={styles.paymentName}>{p.lesson_name || 'Занятие'}</span>
+                                        <span className={styles.paymentAmount}>{p.Сумма} ₽</span>
+                                        <span style={{ fontSize: '0.8rem', color: p.Статус === 'Оплачен' ? 'green' : 'orange' }}>{p.Статус}</span>
+                                    </div>
+                                ))}
+                                {payments.length === 0 && <p>Нет платежей</p>}
+                            </div>
                         </div>
                     </div>
 
+                    {/* Правая колонка – краткая информация о справках, прививках, аллергиях, посещаемости */}
                     <div>
-                        <div className={styles.sectionTitle}>💰 Индивидуальные занятия</div>
-                        <div className={styles.lessonsGrid}>
-                            {individualLessons.map(lesson => (
-                                <div key={lesson.ID_Занятия} className={styles.lessonCard}>
-                                    <div className={styles.lessonName}>{lesson.Название}</div>
-                                    <div>📅 {lesson.Дата_проведения || 'дата не указана'}</div>
-                                    <div className={styles.lessonPrice}>{lesson.Стоимость} ₽</div>
-                                </div>
+                        <div className={styles.childCard} style={{ marginBottom: '1rem' }}>
+                            <div className={styles.sectionTitle}>📄 Справки</div>
+                            {certificates.slice(0, 2).map(c => (
+                                <div key={c.ID_Справки} className={styles.lessonCard}>{c.Тип_справка} ({new Date(c.Дата_начала).toLocaleDateString()})</div>
                             ))}
+                            <button className={styles.detailsBtn} onClick={() => alert('Все справки')}>Подробнее →</button>
                         </div>
-                        <div style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>Итого к оплате: {totalToPay} ₽</div>
-                    </div>
-
-                    <div>
-                        <div className={styles.sectionTitle}>💳 Мои платежи</div>
-                        <div className={styles.paymentsGrid}>
-                            {payments.map(p => (
-                                <div key={p.ID_Платежа} className={styles.paymentCard}>
-                                    <div>Занятие: {p.Название || '—'}</div>
-                                    <div>Сумма: {p.Сумма} ₽</div>
-                                    <div>Статус: {p.Статус}</div>
-                                </div>
+                        <div className={styles.childCard} style={{ marginBottom: '1rem' }}>
+                            <div className={styles.sectionTitle}>💉 Прививки</div>
+                            {vaccinations.slice(0, 2).map(v => (
+                                <div key={v.ID_Записи_прививки} className={styles.lessonCard}>{v.Название_прививки} – {v.Статус}</div>
                             ))}
+                            <button className={styles.detailsBtn} onClick={() => alert('Все прививки')}>Подробнее →</button>
+                        </div>
+                        <div className={styles.childCard} style={{ marginBottom: '1rem' }}>
+                            <div className={styles.sectionTitle}>🌿 Аллергии</div>
+                            {allergies.map(a => (
+                                <div key={a.ID_Продукта} className={styles.lessonCard}>🚫 {a.Название_продукта}</div>
+                            ))}
+                            <button className={styles.detailsBtn} onClick={() => alert('Все аллергии')}>Подробнее →</button>
+                        </div>
+                        <div className={styles.childCard}>
+                            <div className={styles.sectionTitle}>📅 Посещаемость</div>
+                            {attendance.slice(0, 3).map(a => (
+                                <div key={a.Дата} className={styles.lessonCard}>{new Date(a.Дата).toLocaleDateString()} – {a.Время_прихода?.slice(0, 5)}</div>
+                            ))}
+                            <button className={styles.detailsBtn} onClick={() => alert('Вся посещаемость')}>Подробнее →</button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Модальное окно с подробной информацией о ребёнке */}
-            {activeModal === 'child' && (
-                <div className={styles.modalOverlay} onClick={() => setActiveModal(null)}>
-                    <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
-                        <button className={styles.modalClose} onClick={() => setActiveModal(null)}>✕</button>
-                        <h2>{child.Фамилия} {child.Имя}</h2>
-                        <p>Возраст: {age} лет</p>
-                        <p>Группа: {child.Название_Группы}</p>
-
-                        <div className={styles.sectionTitle}>📄 Справки</div>
-                        <button className={styles.detailsBtn} onClick={() => loadModalData('certificates')}>Подробнее →</button>
-
-                        <div className={styles.sectionTitle}>💉 Прививки</div>
-                        <button className={styles.detailsBtn} onClick={() => loadModalData('vaccinations')}>Подробнее →</button>
-
-                        <div className={styles.sectionTitle}>🌿 Аллергии</div>
-                        <button className={styles.detailsBtn} onClick={() => loadModalData('allergies')}>Подробнее →</button>
-
-                        <div className={styles.sectionTitle}>📅 Посещаемость</div>
-                        <button className={styles.detailsBtn} onClick={() => setActiveModal('attendance')}>Подробнее →</button>
-                    </div>
-                </div>
-            )}
-
-            {activeModal === 'certificates' && (
-                <div className={styles.modalOverlay} onClick={() => setActiveModal(null)}>
-                    <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
-                        <button className={styles.modalClose} onClick={() => setActiveModal(null)}>✕</button>
-                        <h3>Справки ребёнка</h3>
-                        <table className={styles.dataTable}>
-                            <thead><tr><th>Тип</th><th>Дата начала</th><th>Дата окончания</th></tr></thead>
-                            <tbody>
-                                {certificates.map(c => (
-                                    <tr key={c.ID_Справки}>
-                                        <td>{c.Тип_справка}</td>
-                                        <td>{new Date(c.Дата_начала).toLocaleDateString('ru-RU')}</td>
-                                        <td>{new Date(c.Дата_окончания).toLocaleDateString('ru-RU')}</td>
-                                    </tr>
-                                ))}
-                                {certificates.length === 0 && <tr><td colSpan="3">Нет данных</td></tr>}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
-
-            {activeModal === 'vaccinations' && (
-                <div className={styles.modalOverlay} onClick={() => setActiveModal(null)}>
-                    <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
-                        <button className={styles.modalClose} onClick={() => setActiveModal(null)}>✕</button>
-                        <h3>Прививки ребёнка</h3>
-                        <table className={styles.dataTable}>
-                            <thead><tr><th>Название</th><th>Дата</th><th>Статус</th></tr></thead>
-                            <tbody>
-                                {vaccinations.map(v => (
-                                    <tr key={v.ID_Записи_прививки}>
-                                        <td>{v.Название_прививки}</td>
-                                        <td>{new Date(v.Дата_проведения).toLocaleDateString('ru-RU')}</td>
-                                        <td>{v.Статус}</td>
-                                    </tr>
-                                ))}
-                                {vaccinations.length === 0 && <tr><td colSpan="3">Нет данных</td></tr>}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
-
-            {activeModal === 'allergies' && (
-                <div className={styles.modalOverlay} onClick={() => setActiveModal(null)}>
-                    <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
-                        <button className={styles.modalClose} onClick={() => setActiveModal(null)}>✕</button>
-                        <h3>Аллергии (запрещённые продукты)</h3>
-                        <table className={styles.dataTable}>
-                            <thead><tr><th>Продукт</th></tr></thead>
-                            <tbody>
-                                {allergies.map(a => (
-                                    <tr key={a.ID_Продукта}>
-                                        <td>{a.Название_продукта}</td>
-                                    </tr>
-                                ))}
-                                {allergies.length === 0 && <tr><td>Нет данных</td></tr>}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
-
-            {activeModal === 'attendance' && (
-                <div className={styles.modalOverlay} onClick={() => setActiveModal(null)}>
-                    <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
-                        <button className={styles.modalClose} onClick={() => setActiveModal(null)}>✕</button>
-                        <h3>Посещаемость</h3>
-                        <table className={styles.dataTable}>
-                            <thead><tr><th>Дата</th><th>Время прихода</th><th>Время ухода</th></tr></thead>
-                            <tbody>
-                                {attendance.map(a => (
-                                    <tr key={a.Дата}>
-                                        <td>{new Date(a.Дата).toLocaleDateString('ru-RU')}</td>
-                                        <td>{a.Время_прихода?.slice(0, 5)}</td>
-                                        <td>{a.Время_ухода?.slice(0, 5)}</td>
-                                    </tr>
-                                ))}
-                                {attendance.length === 0 && <tr><td colSpan="3">Нет данных</td></tr>}
-                            </tbody>
-                        </table>
+            {/* Модалка записи на платное занятие */}
+            {showBooking && (
+                <div className={styles.modalOverlay} onClick={() => setShowBooking(false)}>
+                    <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+                        <button className={styles.modalClose} onClick={() => setShowBooking(false)}>✕</button>
+                        <h3>Запись на платное занятие</h3>
+                        <select
+                            value={selectedLesson}
+                            onChange={(e) => setSelectedLesson(e.target.value)}
+                            style={{ width: '100%', padding: '8px', marginBottom: '10px' }}
+                        >
+                            <option value="">Выберите занятие</option>
+                            {paidLessons.map(l => (
+                                <option key={l.ID_Занятия} value={l.ID_Занятия}>
+                                    {l.Название} – {l.Стоимость} ₽ ({l.День_недели}, {l.Время_начала?.slice(0, 5)})
+                                </option>
+                            ))}
+                        </select>
+                        <input
+                            type="date"
+                            value={bookingDate}
+                            onChange={(e) => setBookingDate(e.target.value)}
+                            style={{ width: '100%', padding: '8px', marginBottom: '10px' }}
+                        />
+                        <button onClick={handleBookLesson} className={styles.detailsBtn}>Записать</button>
                     </div>
                 </div>
             )}
