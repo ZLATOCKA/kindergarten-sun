@@ -1,13 +1,310 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* src/index.css */
+
+:root {
+    --green-soft: #A8D8A8;
+    --yellow-soft: #FFF1A8;
+    --blue-soft: #A8E0F7;
+    --pink-soft: #FFD5E5;
+    --text-dark: #2B2B2B;
+    --text-light: #FFFFFF;
+    --bg-light: #FBFBFB;
+    --border: #E6E6E6;
+    --shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+    --shadow-hover: 0 12px 30px rgba(0, 0, 0, 0.1);
+    --radius: 16px;
+    --radius-btn: 30px;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Nunito Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background-color: var(--bg-light);
+    color: var(--text-dark);
+    line-height: 1.5;
+    overflow-x: hidden;
+}
+
+h1, h2, h3, h4 {
+    font-family: 'Poppins', 'Baloo 2', sans-serif;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+h1 {
+    font-size: 52px;
+}
+
+h2 {
+    font-size: 36px;
+    margin-bottom: 24px;
+}
+
+h3 {
+    font-size: 24px;
+}
+
+@media (max-width: 768px) {
+    h1 {
+        font-size: 32px;
+    }
+
+    h2 {
+        font-size: 28px;
+    }
+
+    h3 {
+        font-size: 20px;
+    }
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* Кнопки */
+.button-primary {
+    background: var(--yellow-soft);
+    color: var(--text-dark);
+    border: none;
+    border-radius: var(--radius-btn);
+    padding: 14px 32px;
+    font-weight: 700;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-block;
+    text-decoration: none;
+    box-shadow: var(--shadow);
+}
+
+    .button-primary:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-hover);
+        background: #ffe680;
+    }
+
+.button-secondary {
+    background: var(--green-soft);
+    color: var(--text-dark);
+    border: none;
+    border-radius: var(--radius-btn);
+    padding: 12px 28px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+}
+
+    .button-secondary:hover {
+        background: #95c795;
+        transform: translateY(-2px);
+    }
+
+/* Карточки */
+.card {
+    background: white;
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: var(--shadow);
+    transition: all 0.3s ease;
+}
+
+    .card:hover {
+        transform: translateY(-8px);
+        box-shadow: var(--shadow-hover);
+    }
+
+/* Анимация при появлении */
+.fade-up {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.7s ease;
+}
+
+    .fade-up.visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+/* Стили для Swiper (слайдер отзывов) */
+.swiper {
+    padding: 20px 0 40px !important;
+}
+
+.swiper-pagination-bullet {
+    background: var(--green-soft) !important;
+    opacity: 0.5;
+}
+
+.swiper-pagination-bullet-active {
+    background: var(--green-soft) !important;
+    opacity: 1;
+}
+
+/* Секции */
+.section {
+    padding: 80px 0;
+}
+
+.section-alt {
+    background-color: rgba(168, 216, 168, 0.1);
+}
+
+/* Сетки */
+.grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 40px;
+}
+
+.grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 30px;
+}
+
+.grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 30px;
+}
+
+@media (max-width: 768px) {
+    .grid-2, .grid-3, .grid-4 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Дополнительные скругления */
+.card, button, input, img {
+    border-radius: 24px !important;
+}
+
+.button-primary, .button-secondary {
+    border-radius: 40px !important;
+}
+
+section {
+    border-radius: 0;
+}
+
+.container img {
+    border-radius: 32px;
+}
+
+/* Убираем отступы между секциями */
+section {
+    margin: 0;
+    padding: 60px 0;
+}
+
+    /* Первая секция после header чтобы не было отступа сверху */
+    section:first-of-type {
+        margin-top: 0;
+        padding-top: 0;
+    }
+
+/* Подвал примыкает к предыдущему блоку */
+footer {
+    margin-top: 0 !important;
+}
+
+/* ========== БЛОК БЕЗОПАСНОСТИ ========== */
+.security-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 25px;
+    margin-top: 20px;
+}
+
+.security-card {
+    background-color: #fbc80b;
+    border-radius: 28px;
+    padding: 30px 20px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    overflow: hidden;
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+    /* Полупрозрачный слой для читаемости текста */
+    .security-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.45);
+        z-index: 1;
+        transition: background-color 0.3s ease;
+    }
+
+    .security-card:hover::before {
+        background-color: rgba(0, 0, 0, 0.55);
+    }
+
+    .security-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 18px 35px rgba(0, 0, 0, 0.2);
+    }
+
+    .security-card h3,
+    .security-card p {
+        position: relative;
+        z-index: 2;
+        margin: 0;
+    }
+
+    .security-card h3 {
+        font-size: 22px;
+        font-weight: 800;
+        color: #fbc80b;
+        margin-bottom: 15px;
+        font-family: 'Poppins', 'Baloo 2', sans-serif;
+    }
+
+    .security-card p {
+        font-size: 15px;
+        font-weight: 700;
+        color: #ffffff;
+        line-height: 1.45;
+    }
+
+/* Адаптив */
+@media (max-width: 1024px) {
+    .security-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+    }
+
+    .security-card {
+        min-height: 200px;
+    }
+}
+
+@media (max-width: 640px) {
+    .security-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .security-card {
+        min-height: 180px;
+    }
 }

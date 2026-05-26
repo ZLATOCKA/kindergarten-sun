@@ -1,0 +1,115 @@
+.hero {
+    background: linear-gradient(135deg, #fbc80b 0%, #009665 100%);
+    padding: 60px 0 50px;
+    text-align: center;
+    color: white;
+    border-radius: 0 0 50px 50px;
+}
+
+.heroTitle {
+    font-size: 48px;
+    font-weight: 700;
+    margin-bottom: 15px;
+}
+
+.heroSubtitle {
+    font-size: 18px;
+    opacity: 0.95;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 30px;
+}
+
+.card {
+    background: white;
+    border-radius: 28px;
+    padding: 25px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+    .card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 35px rgba(0,150,101,0.15);
+    }
+
+.avatar {
+    width: 100px;
+    height: 100px;
+    background: #fbc80b;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: bold;
+    margin: 0 auto 20px;
+    color: #009665;
+}
+
+.position {
+    font-size: 14px;
+    color: #666;
+    margin: 8px 0 12px;
+}
+
+.badge {
+    display: inline-block;
+    background: #f0faf0;
+    color: #009665;
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 20px;
+}
+
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: white;
+    border-radius: 32px;
+    max-width: 450px;
+    width: 90%;
+    padding: 30px;
+    position: relative;
+    text-align: center;
+}
+
+.modalClose {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+}
+
+.modalAvatar {
+    width: 100px;
+    height: 100px;
+    background: #fbc80b;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    font-weight: bold;
+    margin: 0 auto 20px;
+    color: #009665;
+}
