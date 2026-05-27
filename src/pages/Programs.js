@@ -46,13 +46,7 @@ const faqData = [
 
 function Programs() {
     const [showModal, setShowModal] = useState(false);
-    const [selectedLesson, setSelectedLesson] = useState(null);
     const [openFaq, setOpenFaq] = useState(null);
-
-    const openModal = (lesson) => {
-        setSelectedLesson(lesson);
-        setShowModal(true);
-    };
 
     const toggleFaq = (index) => {
         setOpenFaq(openFaq === index ? null : index);
@@ -270,9 +264,11 @@ function Programs() {
                                     <h3>{lesson.name}</h3>
                                     <p>{lesson.age}</p>
                                     <p className={styles.lessonPrice}>{lesson.price} ₽ / занятие</p>
-                                    <button className={styles.lessonBtn} onClick={() => openModal(lesson)}>
-                                        Записаться →
-                                    </button>
+                                    <Link to="/login">
+                                        <button className={styles.lessonBtn}>
+                                            Записаться →
+                                        </button>
+                                    </Link>
                                 </div>
                             </FadeInSection>
                         ))}
@@ -436,8 +432,6 @@ function Programs() {
                         >
                             <button className={styles.modalClose} onClick={() => setShowModal(false)}>✕</button>
                             <h3 className={styles.modalTitle}>Запись на занятие</h3>
-                            <p><strong>{selectedLesson?.name}</strong> — {selectedLesson?.duration}, {selectedLesson?.age}</p>
-                            <p className={styles.modalPrice}>Стоимость: {selectedLesson?.price} ₽</p>
                             <input type="text" placeholder="Имя ребёнка" className={styles.modalInput} />
                             <input type="text" placeholder="Ваше имя" className={styles.modalInput} />
                             <input type="tel" placeholder="Телефон" className={styles.modalInput} />

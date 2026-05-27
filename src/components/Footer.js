@@ -106,13 +106,13 @@ function Footer() {
                             </h3>
                         </Link>
                         <p style={{ margin: '12px 0', fontSize: '16px', fontWeight: 600, color: '#2B2B2B' }}>
-                            📍 г. Санкт-Петербург, Московский пр., д.149
+                            г. Санкт-Петербург, Московский пр., д.149
                         </p>
                         <p style={{ margin: '12px 0', fontSize: '22px', fontWeight: 700, color: '#009665' }}>
-                            📞 +7 (924) 676-76-67
+                            +7 (924) 676-76-67
                         </p>
                         <p style={{ margin: '12px 0', fontSize: '16px', fontWeight: 600, color: '#2B2B2B' }}>
-                            ✉️ sun@kindergarten.ru
+                            sun@kindergarten.ru
                         </p>
                     </div>
 
