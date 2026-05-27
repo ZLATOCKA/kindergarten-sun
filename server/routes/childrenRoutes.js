@@ -7,6 +7,7 @@ const router = express.Router();
 router.get('/my-child', authMiddleware, async (req, res) => {
     if (req.user.role !== 'parent') return res.status(403).json({ message: 'Доступ запрещён' });
     try {
+        console.log(`🆔 [DEBUG] ID родителя из токена: ${req.user.id}`);
         const result = await pool.query(
             `SELECT d."ID_Ребенка", d."Фамилия", d."Имя", d."Дата рождения", d."Пол",
               g."Название_Группы", v."Возраст" as "ВозрастнаяКатегория"
@@ -18,8 +19,10 @@ router.get('/my-child', authMiddleware, async (req, res) => {
        WHERE rd."ID_Родителя" = $1`,
             [req.user.id]
         );
+        console.log(`👶 [DEBUG] Результат запроса: ${result.rows.length} запись(ей)`, result.rows);
         res.json(result.rows[0] || null);
     } catch (err) {
+        console.error(`❌ [DEBUG] Ошибка SQL: ${err.message}`);
         res.status(500).json({ message: err.message });
     }
 });

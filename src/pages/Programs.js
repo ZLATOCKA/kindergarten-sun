@@ -5,15 +5,15 @@ import FadeInSection from '../components/FadeInSection';
 import TestimonialSlider from '../components/TestimonialSlider';
 import styles from './styles/Programs.module.css';
 
-// Данные из вашего отчёта (таблица "Индивидуальные занятия")
+// Данные из вашего отчёта (таблица "Индивидуальные занятия") с иконками
 const individualLessons = [
-    { id: 1, name: 'Математика', duration: '45 мин', price: 800, age: '3-7 лет' },
-    { id: 2, name: 'Музыка', duration: '45 мин', price: 800, age: '3-7 лет' },
-    { id: 3, name: 'Английский язык', duration: '45 мин', price: 900, age: '4-7 лет' },
-    { id: 4, name: 'Логопед', duration: '30 мин', price: 1000, age: '3-7 лет' },
-    { id: 5, name: 'Рисование', duration: '45 мин', price: 700, age: '3-7 лет' },
-    { id: 6, name: 'Хореография', duration: '45 мин', price: 800, age: '3-7 лет' },
-    { id: 7, name: 'Подготовка к школе', duration: '60 мин', price: 900, age: '5-7 лет' },
+    { id: 1, name: 'Математика', duration: '45 мин', price: 800, age: '3-7 лет', icon: '/images/programs/math-icon.png' },
+    { id: 2, name: 'Музыка', duration: '45 мин', price: 800, age: '3-7 лет', icon: '/images/programs/music-icon.png' },
+    { id: 3, name: 'Английский язык', duration: '45 мин', price: 900, age: '4-7 лет', icon: '/images/programs/english-icon.png' },
+    { id: 4, name: 'Логопед', duration: '30 мин', price: 1000, age: '3-7 лет', icon: '/images/programs/speech-icon.png' },
+    { id: 5, name: 'Рисование', duration: '45 мин', price: 700, age: '3-7 лет', icon: '/images/programs/drawing-icon.png' },
+    { id: 6, name: 'Хореография', duration: '45 мин', price: 800, age: '3-7 лет', icon: '/images/programs/dance-icon.png' },
+    { id: 7, name: 'Подготовка к школе', duration: '60 мин', price: 900, age: '5-7 лет', icon: '/images/programs/school-icon.png' },
 ];
 
 // Данные для аккордеона FAQ
@@ -60,22 +60,55 @@ function Programs() {
 
     return (
         <>
-            {/* Hero-блок с заголовком */}
-            <section className={styles.programsHero}>
-                <div className="container">
-                    <FadeInSection>
-                        <h1 className={styles.programsHeroTitle}>Наши программы</h1>
-                        <p className={styles.programsHeroSubtitle}>Индивидуальный подход к каждому ребёнку</p>
-                    </FadeInSection>
+            {/* Hero-блок с заголовком и фоновым изображением */}
+            <div style={{
+                backgroundImage: 'url(/images/programs/programs-bg.jpg)',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                height: '350px',
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '60px',
+                borderRadius: '0 0 50px 50px'
+            }}>
+                <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                    borderRadius: '0 0 50px 50px'
+                }} />
+                <div className="container" style={{ position: 'relative', zIndex: 2, textAlign: 'center' }}>
+                    <h1 style={{
+                        color: 'white',
+                        fontSize: '56px',
+                        fontWeight: 700,
+                        textShadow: '2px 2px 8px rgba(0,0,0,0.3)',
+                        fontFamily: "'Poppins', 'Baloo 2', sans-serif",
+                        marginBottom: '20px'
+                    }}>
+                        Наши программы
+                    </h1>
+                    <p style={{
+                        color: 'white',
+                        fontSize: '20px',
+                        fontWeight: 500,
+                        textShadow: '1px 1px 4px rgba(0,0,0,0.3)'
+                    }}>
+                        Индивидуальный подход к каждому ребёнку
+                    </p>
                 </div>
-            </section>
-
-            {/* Блок "О школе" + карточки преимуществ в 2 колонки (как на arthello) */}
+            </div>
+            {/* Блок "О школе" + карточки преимуществ в 2 колонки */}
             <section className="container section">
                 <div className={styles.aboutGrid}>
                     <FadeInSection>
                         <div className={styles.aboutText}>
-                            <h2>О школе</h2>
+                            <h2>О саде</h2>
                             <p>Добро пожаловать в детский сад «Солнышко». Здесь закладывается фундамент знаний и развиваются юные таланты.</p>
                             <p>Наша программа направлена на развитие творческих способностей и критического мышления у детей. Уделяя особое внимание индивидуальному обучению, мы обеспечиваем процветание каждого ребенка в благоприятной среде.</p>
                         </div>
@@ -84,7 +117,7 @@ function Programs() {
                     <div className={styles.aboutFeatures}>
                         <FadeInSection delay={100}>
                             <div className={styles.aboutFeature}>
-                                <span className={styles.aboutFeatureIcon}>✅</span>
+                                <span className={styles.aboutFeatureIcon}></span>
                                 <div>
                                     <h3>Лицензированная школа</h3>
                                     <p>Наша школа лицензирована, родителям предоставляется возможность оплаты материнским капиталом</p>
@@ -93,7 +126,7 @@ function Programs() {
                         </FadeInSection>
                         <FadeInSection delay={200}>
                             <div className={styles.aboutFeature}>
-                                <span className={styles.aboutFeatureIcon}>🎯</span>
+                                <span className={styles.aboutFeatureIcon}></span>
                                 <div>
                                     <h3>Особый подход</h3>
                                     <p>По-настоящему гибкий подход к каждому ребенку</p>
@@ -102,7 +135,7 @@ function Programs() {
                         </FadeInSection>
                         <FadeInSection delay={150}>
                             <div className={styles.aboutFeature}>
-                                <span className={styles.aboutFeatureIcon}>🏠</span>
+                                <span className={styles.aboutFeatureIcon}></span>
                                 <div>
                                     <h3>Комфортная среда</h3>
                                     <p>Просторные классы и уютные зоны отдыха</p>
@@ -111,7 +144,7 @@ function Programs() {
                         </FadeInSection>
                         <FadeInSection delay={250}>
                             <div className={styles.aboutFeature}>
-                                <span className={styles.aboutFeatureIcon}>📅</span>
+                                <span className={styles.aboutFeatureIcon}></span>
                                 <div>
                                     <h3>Гибкий график занятий</h3>
                                     <p>Удобное расписание для детей и родителей</p>
@@ -122,29 +155,6 @@ function Programs() {
                 </div>
             </section>
 
-            {/* Блок "Стоимость" как на arthello */}
-            <section className={styles.priceSection}>
-                <div className="container">
-                    <div className={styles.priceGrid}>
-                        <FadeInSection>
-                            <div className={styles.priceCard}>
-                                <div className={styles.priceDiscount}>10%</div>
-                                <p className={styles.priceLabel}>Скидка при посещении сада 2 и более детей</p>
-                                <h3 className={styles.priceFullDay}>Полный день</h3>
-                                <p className={styles.priceAmount}>75 000 ₽ / месяц</p>
-                                <p className={styles.priceNote}>Оплата мат. капиталом</p>
-                            </div>
-                        </FadeInSection>
-                        <FadeInSection delay={200}>
-                            <div className={styles.priceCard}>
-                                <h3 className={styles.priceLessons}>Дополнительные занятия</h3>
-                                <p className={styles.priceAmount}>от 900 ₽</p>
-                                <p className={styles.priceNote}>Развивающие занятия</p>
-                            </div>
-                        </FadeInSection>
-                    </div>
-                </div>
-            </section>
 
             {/* Блок "Наши будни" с расписанием */}
             <section className="container section">
@@ -240,7 +250,7 @@ function Programs() {
                 </div>
             </section>
 
-            {/* Блок "Дополнительные занятия" (ваши инди-занятия) */}
+            {/* Блок "Дополнительные занятия" — с иконками-изображениями */}
             <section className={styles.lessonsSection}>
                 <div className="container">
                     <FadeInSection>
@@ -251,15 +261,12 @@ function Programs() {
                         {individualLessons.map((lesson, index) => (
                             <FadeInSection key={lesson.id} delay={index * 80}>
                                 <div className={styles.lessonCard}>
-                                    <div className={styles.lessonIcon}>
-                                        {lesson.name === 'Математика' && '📐'}
-                                        {lesson.name === 'Музыка' && '🎵'}
-                                        {lesson.name === 'Английский язык' && '🇬🇧'}
-                                        {lesson.name === 'Логопед' && '🗣️'}
-                                        {lesson.name === 'Рисование' && '🎨'}
-                                        {lesson.name === 'Хореография' && '💃'}
-                                        {lesson.name === 'Подготовка к школе' && '📚'}
-                                    </div>
+                                    <img
+                                        src={lesson.icon}
+                                        alt={lesson.name}
+                                        className={styles.lessonIcon}
+                                        onError={(e) => { e.target.style.display = 'none'; }}
+                                    />
                                     <h3>{lesson.name}</h3>
                                     <p>{lesson.age}</p>
                                     <p className={styles.lessonPrice}>{lesson.price} ₽ / занятие</p>
@@ -328,13 +335,13 @@ function Programs() {
             {/* Блок "Поступление" — 4 шага */}
             <section className="container section">
                 <FadeInSection>
-                    <h2 className={styles.sectionTitle}>Поступление в первый класс</h2>
+                    <h2 className={styles.sectionTitle}>Поступление в сад</h2>
                 </FadeInSection>
                 <div className={styles.stepsGrid}>
                     {[
                         { step: 1, title: 'Вы уже узнали о нас!', desc: 'Заполните форму или позвоните нам' },
                         { step: 2, title: 'Экскурсия', desc: 'Знакомство с пространством детского сада' },
-                        { step: 3, title: 'Знакомство', desc: 'С первоклассником и его семьей' },
+                        { step: 3, title: 'Знакомство', desc: 'С ребенком и его семьей' },
                         { step: 4, title: 'Документы', desc: 'Сбор и подача документов, заключение договора' }
                     ].map((item, idx) => (
                         <FadeInSection key={idx} delay={idx * 100}>

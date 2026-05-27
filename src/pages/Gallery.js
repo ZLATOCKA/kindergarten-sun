@@ -90,22 +90,47 @@ function Gallery() {
         <div className="gallery-page">
             {/* Hero-блок */}
             <div style={{
-                background: 'linear-gradient(135deg, #fbc80b 0%, #009665 100%)',
-                padding: '60px 0 40px',
-                textAlign: 'center',
-                color: 'white',
-                borderRadius: '0 0 40px 40px'
+                backgroundImage: 'url(/images/gallery/gallery-bg.jpg)',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                height: '350px',
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '60px',
+                borderRadius: '0 0 50px 50px'
             }}>
-                <div className="container">
-                    <FadeInSection>
-                        <h1 style={{ fontSize: '48px', marginBottom: '20px' }}>Наша галерея</h1>
-                        <p style={{ fontSize: '18px', maxWidth: '600px', margin: '0 auto' }}>
-                            Яркие моменты из жизни детского сада «Солнышко» ☀️
-                        </p>
-                    </FadeInSection>
+                <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                    borderRadius: '0 0 50px 50px'
+                }} />
+                <div className="container" style={{ position: 'relative', zIndex: 2, textAlign: 'center' }}>
+                    <h1 style={{
+                        color: 'white',
+                        fontSize: '56px',
+                        fontWeight: 700,
+                        textShadow: '2px 2px 8px rgba(0,0,0,0.3)',
+                        fontFamily: "'Poppins', 'Baloo 2', sans-serif",
+                        marginBottom: '20px'
+                    }}>
+                        Наша галерея
+                    </h1>
+                    <p style={{
+                        color: 'white',
+                        fontSize: '20px',
+                        fontWeight: 500,
+                        textShadow: '1px 1px 4px rgba(0,0,0,0.3)'
+                    }}>
+                        Яркие моменты из жизни детского сада «Солнышко»
+                    </p>
                 </div>
             </div>
-
             {/* Фильтр категорий */}
             <div className="container" style={{ marginTop: '40px', marginBottom: '40px' }}>
                 <div style={{
@@ -126,7 +151,7 @@ function Gallery() {
                             fontWeight: 600
                         }}
                     >
-                        🖼️ Все фото
+                        Все фото
                     </button>
                     {Object.entries(galleryData).map(([key, cat]) => (
                         <button

@@ -170,7 +170,7 @@ function Contacts() {
                                     color: '#009665',
                                     fontFamily: "'Poppins', sans-serif"
                                 }}>
-                                    📞 Свяжитесь с нами
+                                    Свяжитесь с нами
                                 </h3>
                                 <p style={{ fontSize: '20px', fontWeight: 600, marginBottom: '10px' }}>+7 (924) 676-76-67</p>
                                 <p style={{ fontSize: '16px', color: '#555' }}>Ежедневно с 9:00 до 19:00</p>
@@ -194,7 +194,7 @@ function Contacts() {
                                     color: '#009665',
                                     fontFamily: "'Poppins', sans-serif"
                                 }}>
-                                    📍 Наши адреса
+                                    Наши адреса
                                 </h3>
                                 <p style={{ marginBottom: '15px', fontSize: '16px' }}>
                                     <strong>Основной филиал:</strong><br />

@@ -1,26 +1,7 @@
 /* src/pages/styles/Programs.module.css */
 
-/* Hero-блок */
-.programsHero {
-    background: linear-gradient(135deg, #fbc80b 0%, #009665 100%);
-    padding: 80px 0 60px;
-    text-align: center;
-    color: white;
-    border-radius: 0 0 50px 50px;
-}
+/* Hero-блок с фоновым изображением */
 
-.programsHeroTitle {
-    font-size: 52px;
-    font-weight: 700;
-    margin-bottom: 20px;
-    font-family: 'Poppins', 'Baloo 2', sans-serif;
-}
-
-.programsHeroSubtitle {
-    font-size: 20px;
-    font-weight: 500;
-    opacity: 0.95;
-}
 
 /* Ѕлок "ќ школе" */
 .aboutGrid {
@@ -238,9 +219,14 @@
         box-shadow: 0 15px 30px rgba(0, 0, 0, 0.12);
     }
 
+
+/* »конки зан€тий Ч изображени€ */
 .lessonIcon {
-    font-size: 48px;
-    margin-bottom: 15px;
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    margin: 0 auto 15px;
+    display: block;
 }
 
 .lessonCard h3 {
