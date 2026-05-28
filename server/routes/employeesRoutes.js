@@ -30,6 +30,21 @@ router.get('/my-profile', authMiddleware, async (req, res) => {
     }
 });
 
+// Обновление профиля сотрудника
+router.put('/my-profile', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'employee') return res.status(403);
+    const { Фамилия, Имя, Отчество, Телефон } = req.body;
+    try {
+        await pool.query(
+            `UPDATE "Сотрудники" SET "Фамилия"=$1, "Имя"=$2, "Отчество"=$3, "Телефон"=$4 WHERE "ID_Сотрудника"=$5`,
+            [Фамилия, Имя, Отчество, Телефон, req.user.id]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 // Получить график работы сотрудника
 router.get('/my-schedule', authMiddleware, async (req, res) => {
     if (req.user.role !== 'employee') return res.status(403).json({ message: 'Доступ запрещён' });
