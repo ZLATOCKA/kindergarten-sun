@@ -3,69 +3,136 @@ const pool = require('../db');
 const authMiddleware = require('../middleware/authMiddleware');
 const router = express.Router();
 
-// Посещаемость
-router.get('/attendance', authMiddleware, async (req, res) => {
-    const { start_date, end_date } = req.query;
+const isAdmin = (req, res, next) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Access denied' });
+    }
+    next();
+};
+
+// ========== РћРўР§РЃРў 1: РџРћРЎР•Р©РђР•РњРћРЎРўР¬ Р”Р•РўР•Р™ (СЃ С„РёР»СЊС‚СЂРѕРј РїРѕ РґР°С‚Рµ) ==========
+router.get('/attendance', authMiddleware, isAdmin, async (req, res) => {
     try {
-        const result = await pool.query(`
-      SELECT d."Фамилия", d."Имя", COUNT(p."Дата") as посещений
-      FROM "Дети" d
-      LEFT JOIN "Посещаемость" p ON d."ID_Ребенка" = p."ID_Ребенка"
-        AND p."Дата" BETWEEN $1 AND $2
-      GROUP BY d."ID_Ребенка"
-    `, [start_date, end_date]);
+        const { start_date, end_date } = req.query;
+
+        let query = `
+            SELECT 
+                d."Р¤Р°РјРёР»РёСЏ" || ' ' || d."РРјСЏ" as child_name,
+                COUNT(p."Р”Р°С‚Р°") as days_count
+            FROM kindergarten_db."Р”РµС‚Рё" d
+            LEFT JOIN kindergarten_db."РџРѕСЃРµС‰Р°РµРјРѕСЃС‚СЊ" p ON d."ID_Р РµР±РµРЅРєР°" = p."ID_Р РµР±РµРЅРєР°"
+        `;
+
+        const params = [];
+        if (start_date && end_date) {
+            query += ` WHERE p."Р”Р°С‚Р°" BETWEEN $1 AND $2`;
+            params.push(start_date, end_date);
+        }
+
+        query += `
+            GROUP BY d."ID_Р РµР±РµРЅРєР°", d."Р¤Р°РјРёР»РёСЏ", d."РРјСЏ"
+            ORDER BY days_count DESC
+        `;
+
+        const result = await pool.query(query, params);
         res.json(result.rows);
     } catch (err) {
+        console.error('Attendance error:', err);
         res.status(500).json({ error: err.message });
     }
 });
 
-// Занятость сотрудников
-router.get('/employee-workload', authMiddleware, async (req, res) => {
-    const { start_date, end_date } = req.query;
+// ========== РћРўР§РЃРў 2: Р—РђРќРЇРўРћРЎРўР¬ РЎРћРўР РЈР”РќРРљРћР’ (СЃ С„РёР»СЊС‚СЂРѕРј РїРѕ РґР°С‚Рµ) ==========
+router.get('/employee-workload', authMiddleware, isAdmin, async (req, res) => {
     try {
-        const result = await pool.query(`
-      SELECT s."Фамилия", s."Имя", COUNT(p."ID_Плана") as занятий
-      FROM "Сотрудники" s
-      LEFT JOIN "План занятий" p ON s."ID_Сотрудника" = p."ID_Сотрудника"
-        AND p."Дата" BETWEEN $1 AND $2
-      GROUP BY s."ID_Сотрудника"
-    `, [start_date, end_date]);
+        const { start_date, end_date } = req.query;
+
+        let query = `
+            SELECT 
+                s."Р¤Р°РјРёР»РёСЏ" || ' ' || s."РРјСЏ" as employee_name,
+                COUNT(gr."Р”Р°С‚Р°") as work_days
+            FROM kindergarten_db."РЎРѕС‚СЂСѓРґРЅРёРєРё" s
+            LEFT JOIN kindergarten_db."Р“СЂР°С„РёРє Р Р°Р±РѕС‚С‹" gr ON s."ID_РЎРѕС‚СЂСѓРґРЅРёРєР°" = gr."ID_РЎРѕС‚СЂСѓРґРЅРёРєР°"
+        `;
+
+        const params = [];
+        if (start_date && end_date) {
+            query += ` WHERE gr."Р”Р°С‚Р°" BETWEEN $1 AND $2`;
+            params.push(start_date, end_date);
+        }
+
+        query += `
+            GROUP BY s."ID_РЎРѕС‚СЂСѓРґРЅРёРєР°", s."Р¤Р°РјРёР»РёСЏ", s."РРјСЏ"
+            ORDER BY work_days DESC
+        `;
+
+        const result = await pool.query(query, params);
         res.json(result.rows);
     } catch (err) {
+        console.error('Employee workload error:', err);
         res.status(500).json({ error: err.message });
     }
 });
 
-// Поставки
-router.get('/supplies', authMiddleware, async (req, res) => {
-    const { start_date, end_date } = req.query;
+// ========== РћРўР§РЃРў 3: РџРћРЎРўРђР’РљР (СЃ С„РёР»СЊС‚СЂРѕРј РїРѕ РґР°С‚Рµ) ==========
+router.get('/supplies', authMiddleware, isAdmin, async (req, res) => {
     try {
-        const result = await pool.query(`
-      SELECT post."Название_компании", SUM(tp."Количество" * tp."Цена_за_единицу") as сумма
-      FROM "Поставки" p
-      JOIN "Поставщик" post ON p."ID_Поставщика" = post."ID_Поставщика"
-      JOIN "Товары в поставке" tp ON p."ID_Поставки" = tp."ID_Поставки"
-      WHERE p."Дата_поставки" BETWEEN $1 AND $2
-      GROUP BY post."Название_компании"
-    `, [start_date, end_date]);
+        const { start_date, end_date } = req.query;
+
+        let query = `
+            SELECT 
+                p."Р”Р°С‚Р°_РїРѕСЃС‚Р°РІРєРё" as supply_date,
+                s."РќР°Р·РІР°РЅРёРµ_РєРѕРјРїР°РЅРёРё" as supplier_name,
+                f."РќР°Р·РІР°РЅРёРµ_С„РёР»РёР°Р»Р°" as branch_name
+            FROM kindergarten_db."РџРѕСЃС‚Р°РІРєРё" p
+            LEFT JOIN kindergarten_db."РџРѕСЃС‚Р°РІС‰РёРє" s ON p."ID_РџРѕСЃС‚Р°РІС‰РёРєР°" = s."ID_РџРѕСЃС‚Р°РІС‰РёРєР°"
+            LEFT JOIN kindergarten_db."Р¤РёР»РёР°Р»С‹" f ON p."ID_Р¤РёР»РёР°Р»Р°" = f."ID_Р¤РёР»РёР°Р»С‹"
+        `;
+
+        const params = [];
+        if (start_date && end_date) {
+            query += ` WHERE p."Р”Р°С‚Р°_РїРѕСЃС‚Р°РІРєРё" BETWEEN $1 AND $2`;
+            params.push(start_date, end_date);
+        }
+
+        query += ` ORDER BY p."Р”Р°С‚Р°_РїРѕСЃС‚Р°РІРєРё" DESC`;
+
+        const result = await pool.query(query, params);
         res.json(result.rows);
     } catch (err) {
+        console.error('Supplies error:', err);
         res.status(500).json({ error: err.message });
     }
 });
 
-// Прививки
-router.get('/vaccinations', authMiddleware, async (req, res) => {
+// ========== РћРўР§РЃРў 4: РџР РР’РР’РљР Р”Р•РўР•Р™ (СЃ С„РёР»СЊС‚СЂРѕРј РїРѕ РґР°С‚Рµ) ==========
+router.get('/vaccinations', authMiddleware, isAdmin, async (req, res) => {
     try {
-        const result = await pool.query(`
-      SELECT d."Фамилия", d."Имя", v."Название_прививки", pr."Дата_проведения"
-      FROM "Прививки ребенка" pr
-      JOIN "Дети" d ON pr."ID_Ребенка" = d."ID_Ребенка"
-      JOIN "Прививки" v ON pr."ID_Прививки" = v."ID_Прививки"
-    `);
+        const { start_date, end_date } = req.query;
+
+        let query = `
+            SELECT 
+                d."Р¤Р°РјРёР»РёСЏ" || ' ' || d."РРјСЏ" as child_name,
+                v."РќР°Р·РІР°РЅРёРµ_РїСЂРёРІРёРІРєРё" as vaccine_name,
+                TO_CHAR(vr."Р”Р°С‚Р°_РїСЂРѕРІРµРґРµРЅРёСЏ", 'DD.MM.YYYY') as vaccine_date,
+                vr."РЎС‚Р°С‚СѓСЃ" as status
+            FROM kindergarten_db."РџСЂРёРІРёРІРєРё СЂРµР±РµРЅРєР°" vr
+            LEFT JOIN kindergarten_db."Р”РµС‚Рё" d ON vr."ID_Р РµР±РµРЅРєР°" = d."ID_Р РµР±РµРЅРєР°"
+            LEFT JOIN kindergarten_db."РџСЂРёРІРёРІРєРё" v ON vr."ID_РџСЂРёРІРёРІРєРё" = v."ID_РџСЂРёРІРёРІРєРё"
+        `;
+
+        const params = [];
+        if (start_date && end_date) {
+            query += ` WHERE vr."Р”Р°С‚Р°_РїСЂРѕРІРµРґРµРЅРёСЏ" BETWEEN $1 AND $2`;
+            params.push(start_date, end_date);
+        }
+
+        query += ` ORDER BY vr."Р”Р°С‚Р°_РїСЂРѕРІРµРґРµРЅРёСЏ" DESC`;
+
+        const result = await pool.query(query, params);
         res.json(result.rows);
     } catch (err) {
+        console.error('Vaccinations error:', err);
         res.status(500).json({ error: err.message });
     }
 });

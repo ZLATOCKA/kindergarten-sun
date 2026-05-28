@@ -1,20 +1,19 @@
 const express = require('express');
 const pool = require('../db');
 const authMiddleware = require('../middleware/authMiddleware');
+const bcrypt = require('bcrypt');
 const router = express.Router();
 
 const isAdmin = (req, res, next) => {
     if (req.user.role !== 'admin') {
-        return res.status(403).json({ message: 'Доступ запрещён. Требуется роль admin' });
+        return res.status(403).json({ message: 'Access denied' });
     }
     next();
 };
 
-// ========== ПРОФИЛЬ АДМИНИСТРАТОРА ==========
+// ========== ПРОФИЛЬ АДМИНИСТРАТОРА (полный) ==========
 router.get('/employees/my-profile', authMiddleware, async (req, res) => {
     try {
-        console.log('🔍 PROFILE REQ.USER:', req.user);
-
         const result = await pool.query(
             `SELECT 
                 s."ID_Сотрудника" as id,
@@ -22,162 +21,212 @@ router.get('/employees/my-profile', authMiddleware, async (req, res) => {
                 s."Имя",
                 s."Отчество",
                 s."Телефон",
+                s."Email",
+                s."Адрес",
+                s."Дата_рождения",
                 d."Название_должности" as "Должность",
                 f."Название_филиала" as "Филиал"
-            FROM "Сотрудники" s
-            LEFT JOIN "Должности" d ON s."ID_Должности" = d."ID_Должности"
-            LEFT JOIN "Филиалы" f ON s."ID_Филиала" = f."ID_Филиалы"
+            FROM kindergarten_db."Сотрудники" s
+            LEFT JOIN kindergarten_db."Должности" d ON s."ID_Должности" = d."ID_Должности"
+            LEFT JOIN kindergarten_db."Филиалы" f ON s."ID_Филиала" = f."ID_Филиалы"
             WHERE s."ID_Сотрудника" = $1`,
             [req.user.id]
         );
-
-        console.log('📊 SQL RESULT:', result.rows);
-
         if (result.rows.length === 0) {
             return res.status(404).json({ message: 'Сотрудник не найден' });
         }
-
         res.json(result.rows[0]);
     } catch (err) {
-        console.error('❌ PROFILE ERROR:', err);
+        console.error('Profile error:', err);
         res.status(500).json({ message: err.message });
     }
 });
 
 router.put('/employees/my-profile', authMiddleware, async (req, res) => {
     try {
-        const { Фамилия, Имя, Отчество, Телефон } = req.body;
-        await pool.query(
-            `UPDATE "Сотрудники" 
-             SET "Фамилия"=$1, "Имя"=$2, "Отчество"=$3, "Телефон"=$4 
-             WHERE "ID_Сотрудника"=$5`,
-            [Фамилия, Имя, Отчество, Телефон, req.user.id]
-        );
+        const { Фамилия, Имя, Отчество, Телефон, Email, Адрес, Дата_рождения, password } = req.body;
+        
+        let query = `
+            UPDATE kindergarten_db."Сотрудники" 
+            SET "Фамилия"=$1, "Имя"=$2, "Отчество"=$3, "Телефон"=$4, "Email"=$5, "Адрес"=$6, "Дата_рождения"=$7
+        `;
+        const params = [Фамилия, Имя, Отчество, Телефон, Email, Адрес, Дата_рождения, req.user.id];
+        
+        if (password) {
+            const hashedPassword = await bcrypt.hash(password, 10);
+            query += `, "PasswordHash"=$${params.length + 1}`;
+            params.push(hashedPassword);
+        }
+        
+        query += ` WHERE "ID_Сотрудника"=$${params.length}`;
+        await pool.query(query, params);
         res.json({ success: true });
     } catch (err) {
-        console.error(err);
+        console.error('Update profile error:', err);
         res.status(500).json({ message: err.message });
     }
 });
 
-// ========== СОТРУДНИКИ ==========
-router.get('/employees', authMiddleware, isAdmin, async (req, res) => {
-    const result = await pool.query(`SELECT "ID_Сотрудника" as id, "Фамилия", "Имя", "Телефон" FROM "Сотрудники"`);
-    res.json(result.rows);
-});
-router.post('/employees', authMiddleware, isAdmin, async (req, res) => {
-    const { Фамилия, Имя, Телефон } = req.body;
-    const result = await pool.query(
-        `INSERT INTO "Сотрудники" ("Фамилия", "Имя", "Телефон") VALUES ($1, $2, $3) RETURNING "ID_Сотрудника" as id`,
-        [Фамилия, Имя, Телефон]
-    );
-    res.json({ id: result.rows[0].id });
-});
-router.put('/employees/:id', authMiddleware, isAdmin, async (req, res) => {
-    const { Фамилия, Имя, Телефон } = req.body;
-    await pool.query(`UPDATE "Сотрудники" SET "Фамилия"=$1, "Имя"=$2, "Телефон"=$3 WHERE "ID_Сотрудника"=$4`,
-        [Фамилия, Имя, Телефон, req.params.id]);
-    res.json({ success: true });
-});
-router.delete('/employees/:id', authMiddleware, isAdmin, async (req, res) => {
-    await pool.query(`DELETE FROM "Сотрудники" WHERE "ID_Сотрудника"=$1`, [req.params.id]);
-    res.json({ success: true });
-});
-
-// ========== ДЕТИ ==========
+// ========== ДЕТИ (полные данные) ==========
 router.get('/children', authMiddleware, isAdmin, async (req, res) => {
-    const result = await pool.query(`SELECT "ID_Ребенка" as id, "Фамилия", "Имя", "Дата рождения" FROM "Дети"`);
-    res.json(result.rows);
-});
-router.post('/children', authMiddleware, isAdmin, async (req, res) => {
-    const { Фамилия, Имя, "Дата рождения": Дата_рождения, Пол } = req.body;
-    const result = await pool.query(
-        `INSERT INTO "Дети" ("Фамилия", "Имя", "Дата рождения", "Пол") VALUES ($1,$2,$3,$4) RETURNING "ID_Ребенка" as id`,
-        [Фамилия, Имя, Дата_рождения, Пол]
-    );
-    res.json({ id: result.rows[0].id });
-});
-router.put('/children/:id', authMiddleware, isAdmin, async (req, res) => {
-    const { Фамилия, Имя, "Дата рождения": Дата_рождения, Пол } = req.body;
-    await pool.query(`UPDATE "Дети" SET "Фамилия"=$1, "Имя"=$2, "Дата рождения"=$3, "Пол"=$4 WHERE "ID_Ребенка"=$5`,
-        [Фамилия, Имя, Дата_рождения, Пол, req.params.id]);
-    res.json({ success: true });
-});
-router.delete('/children/:id', authMiddleware, isAdmin, async (req, res) => {
-    await pool.query(`DELETE FROM "Дети" WHERE "ID_Ребенка"=$1`, [req.params.id]);
-    res.json({ success: true });
+    try {
+        const result = await pool.query(`
+            SELECT 
+                "ID_Ребенка" as id,
+                "Фамилия",
+                "Имя",
+                "Отчество",
+                "Дата рождения" as "Дата рождения",
+                "Пол"
+            FROM kindergarten_db."Дети"
+            ORDER BY "ID_Ребенка"
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
 });
 
-// ========== РОДИТЕЛИ ==========
+// ========== РОДИТЕЛИ (полные данные) ==========
 router.get('/parents', authMiddleware, isAdmin, async (req, res) => {
-    const result = await pool.query(`SELECT "Id_Родителя" as id, "Фамилия", "Имя", "Телефон" FROM "Родители"`);
-    res.json(result.rows);
-});
-router.post('/parents', authMiddleware, isAdmin, async (req, res) => {
-    const { Фамилия, Имя, Телефон } = req.body;
-    const result = await pool.query(
-        `INSERT INTO "Родители" ("Фамилия", "Имя", "Телефон") VALUES ($1,$2,$3) RETURNING "Id_Родителя" as id`,
-        [Фамилия, Имя, Телефон]
-    );
-    res.json({ id: result.rows[0].id });
-});
-router.put('/parents/:id', authMiddleware, isAdmin, async (req, res) => {
-    const { Фамилия, Имя, Телефон } = req.body;
-    await pool.query(`UPDATE "Родители" SET "Фамилия"=$1, "Имя"=$2, "Телефон"=$3 WHERE "Id_Родителя"=$4`,
-        [Фамилия, Имя, Телефон, req.params.id]);
-    res.json({ success: true });
-});
-router.delete('/parents/:id', authMiddleware, isAdmin, async (req, res) => {
-    await pool.query(`DELETE FROM "Родители" WHERE "Id_Родителя"=$1`, [req.params.id]);
-    res.json({ success: true });
+    try {
+        const result = await pool.query(`
+            SELECT 
+                p."Id_Родителя" as id,
+                p."Фамилия",
+                p."Имя",
+                p."Отчество",
+                sr."Степени_родства" as "Степень_родства",
+                p."Адрес",
+                p."Телефон",
+                p."Паспортные данные" as "Паспортные данные",
+                p."Email"
+            FROM kindergarten_db."Родители" p
+            LEFT JOIN kindergarten_db."Степень родства" sr ON p."ID_Степени" = sr."ID_Степени"
+            ORDER BY p."Id_Родителя"
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
 });
 
-// ========== ГРУППЫ ==========
+// ========== СОТРУДНИКИ (полные данные) ==========
+router.get('/employees', authMiddleware, isAdmin, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                s."ID_Сотрудника" as id,
+                s."Фамилия",
+                s."Имя",
+                s."Отчество",
+                s."Дата_рождения" as "Дата рождения",
+                s."Адрес",
+                s."Телефон",
+                s."Email",
+                d."Название_должности" as "Должность",
+                f."Название_филиала" as "Филиал",
+                s."Роль"
+            FROM kindergarten_db."Сотрудники" s
+            LEFT JOIN kindergarten_db."Должности" d ON s."ID_Должности" = d."ID_Должности"
+            LEFT JOIN kindergarten_db."Филиалы" f ON s."ID_Филиала" = f."ID_Филиалы"
+            ORDER BY s."ID_Сотрудника"
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// ========== ГРУППЫ (с возрастом вместо ID) ==========
 router.get('/groups', authMiddleware, isAdmin, async (req, res) => {
-    const result = await pool.query(`SELECT "ID_Группы" as id, "Название_Группы", "ID_Категории" FROM "Группы"`);
-    res.json(result.rows);
-});
-router.post('/groups', authMiddleware, isAdmin, async (req, res) => {
-    const { Название_Группы, ID_Категории } = req.body;
-    const result = await pool.query(
-        `INSERT INTO "Группы" ("Название_Группы", "ID_Категории") VALUES ($1,$2) RETURNING "ID_Группы" as id`,
-        [Название_Группы, ID_Категории]
-    );
-    res.json({ id: result.rows[0].id });
-});
-router.put('/groups/:id', authMiddleware, isAdmin, async (req, res) => {
-    const { Название_Группы, ID_Категории } = req.body;
-    await pool.query(`UPDATE "Группы" SET "Название_Группы"=$1, "ID_Категории"=$2 WHERE "ID_Группы"=$3`,
-        [Название_Группы, ID_Категории, req.params.id]);
-    res.json({ success: true });
-});
-router.delete('/groups/:id', authMiddleware, isAdmin, async (req, res) => {
-    await pool.query(`DELETE FROM "Группы" WHERE "ID_Группы"=$1`, [req.params.id]);
-    res.json({ success: true });
+    try {
+        const result = await pool.query(`
+            SELECT 
+                g."ID_Группы" as id,
+                g."Название_Группы" as "Название группы",
+                v."Возраст" as "Возраст"
+            FROM kindergarten_db."Группы" g
+            LEFT JOIN kindergarten_db."Возрастная категория" v ON g."ID_Категории" = v."ID_Категории"
+            ORDER BY g."ID_Группы"
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
 });
 
 // ========== ЗАНЯТИЯ ==========
 router.get('/lessons', authMiddleware, isAdmin, async (req, res) => {
-    const result = await pool.query(`SELECT "ID_Занятия" as id, "Название", "Стоимость" FROM "Индивидуальные занятия"`);
-    res.json(result.rows);
+    try {
+        const result = await pool.query(`
+            SELECT 
+                "ID_Занятия" as id,
+                "Название",
+                "Стоимость"
+            FROM kindergarten_db."Индивидуальные занятия"
+            ORDER BY "ID_Занятия"
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
 });
-router.post('/lessons', authMiddleware, isAdmin, async (req, res) => {
-    const { Название, Стоимость } = req.body;
-    const result = await pool.query(
-        `INSERT INTO "Индивидуальные занятия" ("Название", "Стоимость") VALUES ($1,$2) RETURNING "ID_Занятия" as id`,
-        [Название, Стоимость]
-    );
-    res.json({ id: result.rows[0].id });
+
+// ========== ДОЛЖНОСТИ (для выпадающего списка) ==========
+router.get('/positions', authMiddleware, isAdmin, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT "ID_Должности" as id, "Название_должности"
+            FROM kindergarten_db."Должности"
+            ORDER BY "ID_Должности"
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
 });
-router.put('/lessons/:id', authMiddleware, isAdmin, async (req, res) => {
-    const { Название, Стоимость } = req.body;
-    await pool.query(`UPDATE "Индивидуальные занятия" SET "Название"=$1, "Стоимость"=$2 WHERE "ID_Занятия"=$3`,
-        [Название, Стоимость, req.params.id]);
-    res.json({ success: true });
+
+// ========== ФИЛИАЛЫ (для выпадающего списка) ==========
+router.get('/branches', authMiddleware, isAdmin, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT "ID_Филиалы" as id, "Название_филиала"
+            FROM kindergarten_db."Филиалы"
+            ORDER BY "ID_Филиалы"
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
 });
-router.delete('/lessons/:id', authMiddleware, isAdmin, async (req, res) => {
-    await pool.query(`DELETE FROM "Индивидуальные занятия" WHERE "ID_Занятия"=$1`, [req.params.id]);
-    res.json({ success: true });
+
+// ========== СТЕПЕНИ РОДСТВА (для выпадающего списка) ==========
+router.get('/steps', authMiddleware, isAdmin, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT "ID_Степени" as id, "Степени_родства"
+            FROM kindergarten_db."Степень родства"
+            ORDER BY "ID_Степени"
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// ========== ВОЗРАСТНЫЕ КАТЕГОРИИ ==========
+router.get('/age-categories', authMiddleware, isAdmin, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT "ID_Категории" as id, "Возраст"
+            FROM kindergarten_db."Возрастная категория"
+            ORDER BY "ID_Категории"
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
 });
 
 module.exports = router;

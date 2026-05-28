@@ -356,3 +356,48 @@
         flex-wrap: wrap;
     }
 }
+
+/* Подменю в боковой панели */
+.nav-group {
+    width: 100%;
+}
+
+.submenu {
+    padding-left: 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-top: 5px;
+}
+
+    .submenu button {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 8px 12px;
+        font-size: 13px;
+        justify-content: flex-start;
+    }
+
+        .submenu button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+/* Карточки статистики */
+.stat-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .reports-grid {
+        grid-template-columns: 1fr !important;
+    }
+}

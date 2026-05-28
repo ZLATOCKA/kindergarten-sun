@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import api from '../services/api';
+import axios from 'axios';
 import './styles/EmployeeDashboard.css';
+
+const API_URL = 'http://localhost:5000/api';
 
 export default function EmployeeDashboard() {
     const [profile, setProfile] = useState(null);
     const [schedule, setSchedule] = useState([]);
+    const [vacations, setVacations] = useState([]);
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [loading, setLoading] = useState(true);
     const [editing, setEditing] = useState(false);
@@ -12,26 +15,27 @@ export default function EmployeeDashboard() {
     const [error, setError] = useState(null);
 
     useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            setError('Нет токена авторизации');
+            setLoading(false);
+            return;
+        }
+
         const fetchData = async () => {
             try {
-                const token = localStorage.getItem('token');
-                if (!token) {
-                    setError('Нет токена авторизации');
-                    setLoading(false);
-                    return;
-                }
-
-                console.log('📡 Запрос профиля сотрудника...');
-                const profileRes = await api.get('/employees/my-profile');
-                console.log('✅ Профиль получен:', profileRes.data);
-
-                const scheduleRes = await api.get('/employees/my-schedule');
-
+                const headers = { Authorization: `Bearer ${token}` };
+                const [profileRes, scheduleRes, vacationsRes] = await Promise.all([
+                    axios.get(`${API_URL}/employees/my-profile`, { headers }),
+                    axios.get(`${API_URL}/employees/my-schedule`, { headers }),
+                    axios.get(`${API_URL}/employees/my-vacations`, { headers }),
+                ]);
                 setProfile(profileRes.data);
                 setFormData(profileRes.data || {});
                 setSchedule(scheduleRes.data || []);
+                setVacations(vacationsRes.data || []);
             } catch (err) {
-                console.error('❌ Ошибка загрузки:', err);
+                console.error('Ошибка загрузки данных сотрудника:', err);
                 setError(err.response?.data?.message || err.message);
             } finally {
                 setLoading(false);
@@ -42,21 +46,24 @@ export default function EmployeeDashboard() {
 
     const handleSave = async () => {
         try {
-            await api.put('/employees/my-profile', formData);
+            const token = localStorage.getItem('token');
+            await axios.put(`${API_URL}/employees/my-profile`, formData, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
             setProfile(formData);
             setEditing(false);
             alert('Профиль обновлён');
         } catch (err) {
-            alert('Ошибка сохранения');
+            alert('Ошибка сохранения: ' + (err.response?.data?.message || err.message));
         }
     };
 
-    // ... остальной код (календарь) без изменений
-    const getDaysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
-    const getFirstDayIndex = (y, m) => {
-        let day = new Date(y, m, 1).getDay();
+    const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+    const getFirstDayIndex = (year, month) => {
+        let day = new Date(year, month, 1).getDay();
         return day === 0 ? 6 : day - 1;
     };
+
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     const daysCount = getDaysInMonth(year, month);
@@ -65,9 +72,35 @@ export default function EmployeeDashboard() {
     const blanks = Array.from({ length: firstDay });
     const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
-    if (loading) return <div className="employee-loading">Загрузка...</div>;
-    if (error) return <div className="employee-loading error">{error}</div>;
-    if (!profile) return <div className="employee-loading">Данные не найдены</div>;
+    const isWeekend = (day) => {
+        const date = new Date(year, month, day);
+        return date.getDay() === 0 || date.getDay() === 6;
+    };
+
+    const isVacation = (day) => {
+        const date = new Date(year, month, day);
+        return vacations.some(v => {
+            const start = new Date(v.start);
+            const end = new Date(v.end);
+            return date >= start && date <= end;
+        });
+    };
+
+    const isWorkDay = (day) => {
+        const date = new Date(year, month, day);
+        return schedule.some(s => new Date(s.Дата).toDateString() === date.toDateString());
+    };
+
+    const getDayClass = (day) => {
+        if (isVacation(day)) return 'vacation';
+        if (isWeekend(day)) return 'weekend';
+        if (isWorkDay(day)) return 'work';
+        return '';
+    };
+
+    if (loading) return <div className="employee-container"><div className="employee-card" style={{ textAlign: 'center', padding: '50px' }}>Загрузка...</div></div>;
+    if (error) return <div className="employee-container"><div className="employee-card" style={{ textAlign: 'center', padding: '50px', color: 'red' }}>Ошибка: {error}</div></div>;
+    if (!profile) return <div className="employee-container"><div className="employee-card" style={{ textAlign: 'center', padding: '50px' }}>Нет данных профиля</div></div>;
 
     return (
         <div className="employee-container">
@@ -79,10 +112,26 @@ export default function EmployeeDashboard() {
                     <div className="employee-title">
                         {editing ? (
                             <div className="edit-form">
-                                <input value={formData.Фамилия || ''} onChange={e => setFormData({ ...formData, Фамилия: e.target.value })} placeholder="Фамилия" />
-                                <input value={formData.Имя || ''} onChange={e => setFormData({ ...formData, Имя: e.target.value })} placeholder="Имя" />
-                                <input value={formData.Отчество || ''} onChange={e => setFormData({ ...formData, Отчество: e.target.value })} placeholder="Отчество" />
-                                <input value={formData.Телефон || ''} onChange={e => setFormData({ ...formData, Телефон: e.target.value })} placeholder="Телефон" />
+                                <input
+                                    value={formData.Фамилия || ''}
+                                    onChange={e => setFormData({ ...formData, Фамилия: e.target.value })}
+                                    placeholder="Фамилия"
+                                />
+                                <input
+                                    value={formData.Имя || ''}
+                                    onChange={e => setFormData({ ...formData, Имя: e.target.value })}
+                                    placeholder="Имя"
+                                />
+                                <input
+                                    value={formData.Отчество || ''}
+                                    onChange={e => setFormData({ ...formData, Отчество: e.target.value })}
+                                    placeholder="Отчество"
+                                />
+                                <input
+                                    value={formData.Телефон || ''}
+                                    onChange={e => setFormData({ ...formData, Телефон: e.target.value })}
+                                    placeholder="Телефон"
+                                />
                                 <button onClick={handleSave}>Сохранить</button>
                                 <button onClick={() => setEditing(false)}>Отмена</button>
                             </div>
@@ -122,14 +171,29 @@ export default function EmployeeDashboard() {
                         {blanks.map((_, i) => <div key={`blank-${i}`} className="calendar-day blank"></div>)}
                         {daysArray.map(day => {
                             const date = new Date(year, month, day);
-                            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                            const isWeekendDay = date.getDay() === 0 || date.getDay() === 6;
                             const hasWork = schedule.some(s => new Date(s.Дата).toDateString() === date.toDateString());
-                            return <div key={day} className={`calendar-day ${hasWork ? 'work' : ''} ${isWeekend ? 'weekend' : ''}`}>{day}</div>;
+                            const isVacationDay = vacations.some(v => {
+                                const start = new Date(v.start);
+                                const end = new Date(v.end);
+                                return date >= start && date <= end;
+                            });
+                            let dayClass = '';
+                            if (isVacationDay) dayClass = 'vacation';
+                            else if (isWeekendDay) dayClass = 'weekend';
+                            else if (hasWork) dayClass = 'work';
+
+                            return (
+                                <div key={day} className={`calendar-day ${dayClass}`}>
+                                    {day}
+                                </div>
+                            );
                         })}
                     </div>
                     <div className="calendar-legend">
                         <span><span className="legend-work"></span> Рабочий день</span>
                         <span><span className="legend-weekend"></span> Выходной</span>
+                        <span><span className="legend-vacation"></span> Отпуск</span>
                     </div>
                 </div>
             </div>
