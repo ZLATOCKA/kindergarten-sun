@@ -3,47 +3,82 @@ const pool = require('../db');
 const authMiddleware = require('../middleware/authMiddleware');
 const router = express.Router();
 
-// Получить информацию о ребёнке
-router.get('/my-child', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'parent') return res.status(403).json({ message: 'Доступ запрещён' });
+// ========== ПОЛУЧИТЬ ВСЕХ ДЕТЕЙ ==========
+router.get('/my-children', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'parent') {
+        return res.status(403).json({ message: 'Доступ запрещён' });
+    }
+
     try {
-        console.log(`🆔 [DEBUG] ID родителя из токена: ${req.user.id}`);
         const result = await pool.query(
-            `SELECT d."ID_Ребенка", d."Фамилия", d."Имя", d."Дата рождения", d."Пол",
-              g."Название_Группы", v."Возраст" as "ВозрастнаяКатегория"
-       FROM "Дети" d
-       JOIN "Родители-дети" rd ON d."ID_Ребенка" = rd."ID_Ребенка"
-       JOIN "Дети в группе" dg ON d."ID_Ребенка" = dg."ID_Ребенка"
-       JOIN "Группы" g ON dg."ID_Группы" = g."ID_Группы"
-       JOIN "Возрастная категория" v ON g."ID_Категории" = v."ID_Категории"
-       WHERE rd."ID_Родителя" = $1`,
+            `SELECT 
+                d."ID_Ребенка",
+                d."Фамилия",
+                d."Имя",
+                d."Дата рождения",
+                d."Пол",
+                g."Название_Группы",
+                v."Возраст" as "ВозрастнаяКатегория"
+            FROM "Дети" d
+            JOIN "Родители-дети" rd ON d."ID_Ребенка" = rd."ID_Ребенка"
+            JOIN "Дети в группе" dg ON d."ID_Ребенка" = dg."ID_Ребенка"
+            JOIN "Группы" g ON dg."ID_Группы" = g."ID_Группы"
+            JOIN "Возрастная категория" v ON g."ID_Категории" = v."ID_Категории"
+            WHERE rd."ID_Родителя" = $1`,
             [req.user.id]
         );
-        console.log(`👶 [DEBUG] Результат запроса: ${result.rows.length} запись(ей)`, result.rows);
-        res.json(result.rows[0] || null);
+
+        res.json(result.rows);
     } catch (err) {
-        console.error(`❌ [DEBUG] Ошибка SQL: ${err.message}`);
+        console.error(err);
         res.status(500).json({ message: err.message });
     }
 });
 
-// Получить справки ребёнка
-router.get('/my-child/certificates', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'parent') return res.status(403).json({ message: 'Доступ запрещён' });
-
+// ========== АЛЛЕРГИИ (исправлено имя таблицы) ==========
+router.get('/my-children/allergies', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'parent') return res.status(403);
     try {
-        const child = await pool.query(
+        const children = await pool.query(
+            `SELECT d."ID_Ребенка" FROM "Дети" d
+             JOIN "Родители-дети" rd ON d."ID_Ребенка" = rd."ID_Ребенка"
+             WHERE rd."ID_Родителя" = $1`,
+            [req.user.id]
+        );
+        if (children.rows.length === 0) return res.json([]);
+
+        const childIds = children.rows.map(c => c.ID_Ребенка);
+        const result = await pool.query(
+            `SELECT sz.*, zp."Название_продукта"
+             FROM "Список запрещенных продуктов" sz
+             JOIN "Запрещенные продукты" zp ON sz."ID_Продукта" = zp."ID_Продукта"
+             WHERE sz."ID_Ребенка" = ANY($1::int[])`,
+            [childIds]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Получить справки для ВСЕХ детей (или по конкретному)
+router.get('/my-children/certificates', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'parent') return res.status(403);
+    try {
+        const children = await pool.query(
             `SELECT d."ID_Ребенка" FROM "Дети" d
        JOIN "Родители-дети" rd ON d."ID_Ребенка" = rd."ID_Ребенка"
        WHERE rd."ID_Родителя" = $1`,
             [req.user.id]
         );
-        if (child.rows.length === 0) return res.json([]);
+        if (children.rows.length === 0) return res.json([]);
 
+        const childIds = children.rows.map(c => c.ID_Ребенка);
         const result = await pool.query(
-            `SELECT "ID_Справки", "Тип_справка", "Дата_начала", "Дата_окончания"
-       FROM "Справки" WHERE "ID_Ребенка" = $1`,
-            [child.rows[0].ID_Ребенка]
+            `SELECT "ID_Справки", "ID_Ребенка", "Тип_справка", "Дата_начала", "Дата_окончания"
+       FROM "Справки" WHERE "ID_Ребенка" = ANY($1::int[])`,
+            [childIds]
         );
         res.json(result.rows);
     } catch (err) {
@@ -51,25 +86,25 @@ router.get('/my-child/certificates', authMiddleware, async (req, res) => {
     }
 });
 
-// Получить прививки ребёнка
-router.get('/my-child/vaccinations', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'parent') return res.status(403).json({ message: 'Доступ запрещён' });
-
+// Получить прививки для ВСЕХ детей
+router.get('/my-children/vaccinations', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'parent') return res.status(403);
     try {
-        const child = await pool.query(
+        const children = await pool.query(
             `SELECT d."ID_Ребенка" FROM "Дети" d
        JOIN "Родители-дети" rd ON d."ID_Ребенка" = rd."ID_Ребенка"
        WHERE rd."ID_Родителя" = $1`,
             [req.user.id]
         );
-        if (child.rows.length === 0) return res.json([]);
+        if (children.rows.length === 0) return res.json([]);
 
+        const childIds = children.rows.map(c => c.ID_Ребенка);
         const result = await pool.query(
-            `SELECT p."Название_прививки", pr."Дата_проведения", pr."Статус"
+            `SELECT pr.*, p."Название_прививки"
        FROM "Прививки ребенка" pr
        JOIN "Прививки" p ON pr."ID_Прививки" = p."ID_Прививки"
-       WHERE pr."ID_Ребенка" = $1`,
-            [child.rows[0].ID_Ребенка]
+       WHERE pr."ID_Ребенка" = ANY($1::int[])`,
+            [childIds]
         );
         res.json(result.rows);
     } catch (err) {
@@ -77,52 +112,26 @@ router.get('/my-child/vaccinations', authMiddleware, async (req, res) => {
     }
 });
 
-// Получить аллергии (запрещённые продукты) ребёнка
-router.get('/my-child/allergies', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'parent') return res.status(403).json({ message: 'Доступ запрещён' });
-
+// Получить посещаемость для ВСЕХ детей
+router.get('/my-children/attendance', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'parent') return res.status(403);
     try {
-        const child = await pool.query(
+        const children = await pool.query(
             `SELECT d."ID_Ребенка" FROM "Дети" d
        JOIN "Родители-дети" rd ON d."ID_Ребенка" = rd."ID_Ребенка"
        WHERE rd."ID_Родителя" = $1`,
             [req.user.id]
         );
-        if (child.rows.length === 0) return res.json([]);
+        if (children.rows.length === 0) return res.json([]);
 
+        const childIds = children.rows.map(c => c.ID_Ребенка);
         const result = await pool.query(
-            `SELECT zp."Название_продукта"
-       FROM "Список запрещенных продуктов ребенка" sz
-       JOIN "Запрещенные продукты" zp ON sz."ID_Продукта" = zp."ID_Продукта"
-       WHERE sz."ID_Ребенка" = $1`,
-            [child.rows[0].ID_Ребенка]
-        );
-        res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
-});
-
-// Получить посещаемость ребёнка
-router.get('/my-child/attendance', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'parent') return res.status(403).json({ message: 'Доступ запрещён' });
-
-    try {
-        const child = await pool.query(
-            `SELECT d."ID_Ребенка" FROM "Дети" d
-       JOIN "Родители-дети" rd ON d."ID_Ребенка" = rd."ID_Ребенка"
-       WHERE rd."ID_Родителя" = $1`,
-            [req.user.id]
-        );
-        if (child.rows.length === 0) return res.json([]);
-
-        const result = await pool.query(
-            `SELECT "Дата", "Время_прихода", "Время_ухода"
+            `SELECT "ID_Ребенка", "Дата", "Время_прихода", "Время_ухода"
        FROM "Посещаемость"
-       WHERE "ID_Ребенка" = $1
+       WHERE "ID_Ребенка" = ANY($1::int[])
        ORDER BY "Дата" DESC
-       LIMIT 30`,
-            [child.rows[0].ID_Ребенка]
+       LIMIT 50`,
+            [childIds]
         );
         res.json(result.rows);
     } catch (err) {
@@ -130,52 +139,43 @@ router.get('/my-child/attendance', authMiddleware, async (req, res) => {
     }
 });
 
-// Получить родственное древо
+// Родственное древо
 router.get('/my-child/family-tree', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'parent') return res.status(403).json({ message: 'Доступ запрещён' });
-
+    if (req.user.role !== 'parent') return res.status(403);
     try {
-        const child = await pool.query(
-            `SELECT d."ID_Ребенка", d."Фамилия", d."Имя", d."Дата рождения"
-       FROM "Дети" d
-       JOIN "Родители-дети" rd ON d."ID_Ребенка" = rd."ID_Ребенка"
-       WHERE rd."ID_Родителя" = $1`,
-            [req.user.id]
-        );
-        if (child.rows.length === 0) return res.json({ child: null, relatives: [] });
-
         const relatives = await pool.query(
             `SELECT r."Фамилия", r."Имя", r."Отчество", sr."Степени_родства" as "Статус"
        FROM "Родители" r
        JOIN "Степень родства" sr ON r."ID_Степени" = sr."ID_Степени"
        JOIN "Родители-дети" rd ON r."Id_Родителя" = rd."ID_Родителя"
-       WHERE rd."ID_Ребенка" = $1`,
-            [child.rows[0].ID_Ребенка]
+       WHERE rd."ID_Родителя" = $1`,
+            [req.user.id]
         );
-
-        res.json({ child: child.rows[0], relatives: relatives.rows });
+        res.json({ relatives: relatives.rows });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
 });
 
-// Индивидуальные занятия, на которые записан ребёнок
-router.get('/my-child/lessons', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'parent') return res.status(403).json({ message: 'Доступ запрещён' });
+// Индивидуальные занятия, на которые записаны дети
+router.get('/my-children/lessons', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'parent') return res.status(403);
     try {
-        const child = await pool.query(
+        const children = await pool.query(
             `SELECT d."ID_Ребенка" FROM "Дети" d
        JOIN "Родители-дети" rd ON d."ID_Ребенка" = rd."ID_Ребенка"
        WHERE rd."ID_Родителя" = $1`,
             [req.user.id]
         );
-        if (child.rows.length === 0) return res.json([]);
+        if (children.rows.length === 0) return res.json([]);
+
+        const childIds = children.rows.map(c => c.ID_Ребенка);
         const lessons = await pool.query(
-            `SELECT p."ID_Занятия", iz."Название", iz."Стоимость", p."Дата_проведения"
+            `SELECT p."ID_Занятия", p."ID_Ребенка", iz."Название", iz."Стоимость", p."Дата_проведения"
        FROM "Посещенные платные занятия" p
        JOIN "Индивидуальные занятия" iz ON p."ID_Занятия" = iz."ID_Занятия"
-       WHERE p."ID_Ребенка" = $1`,
-            [child.rows[0].ID_Ребенка]
+       WHERE p."ID_Ребенка" = ANY($1::int[])`,
+            [childIds]
         );
         res.json(lessons.rows);
     } catch (err) {
@@ -183,13 +183,16 @@ router.get('/my-child/lessons', authMiddleware, async (req, res) => {
     }
 });
 
-router.get('/my-child/payments', authMiddleware, async (req, res) => {
+// Платежи родителя
+router.get('/my-payments', authMiddleware, async (req, res) => {
     if (req.user.role !== 'parent') return res.status(403);
     try {
         const payments = await pool.query(
-            `SELECT p.*, iz."Название" FROM "Платежи" p
+            `SELECT p.*, iz."Название" as lesson_name
+       FROM "Платежи" p
        LEFT JOIN "Индивидуальные занятия" iz ON p."ID_Занятия" = iz."ID_Занятия"
-       WHERE p."ID_Родителя" = $1`,
+       WHERE p."ID_Родителя" = $1
+       ORDER BY p."Дата_платежа" DESC`,
             [req.user.id]
         );
         res.json(payments.rows);
@@ -198,14 +201,14 @@ router.get('/my-child/payments', authMiddleware, async (req, res) => {
     }
 });
 
-// Получить список доступных платных занятий
+// Список доступных платных занятий
 router.get('/paid-lessons', async (req, res) => {
     try {
-        const result = await pool.query(`
-      SELECT "ID_Занятия", "Название", "Стоимость", "День_недели", "Время_начала"
-      FROM "Индивидуальные занятия"
-      ORDER BY "День_недели", "Время_начала"
-    `);
+        const result = await pool.query(
+            `SELECT "ID_Занятия", "Название", "Стоимость", "День_недели", "Время_начала"
+       FROM "Индивидуальные занятия"
+       ORDER BY "День_недели", "Время_начала"`
+        );
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -214,20 +217,19 @@ router.get('/paid-lessons', async (req, res) => {
 
 // Запись ребёнка на платное занятие
 router.post('/register-lesson', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'parent') return res.status(403).json({ message: 'Доступ запрещён' });
-    const { lessonId, date } = req.body;
-    if (!lessonId || !date) return res.status(400).json({ message: 'Не хватает данных' });
+    if (req.user.role !== 'parent') return res.status(403);
+    const { lessonId, date, childId } = req.body;
+
+    if (!lessonId || !date || !childId) {
+        return res.status(400).json({ message: 'Не хватает данных' });
+    }
+
     try {
-        const childRes = await pool.query(`
-      SELECT d."ID_Ребенка" FROM "Дети" d
-      JOIN "Родители-дети" rd ON d."ID_Ребенка" = rd."ID_Ребенка"
-      WHERE rd."ID_Родителя" = $1
-    `, [req.user.id]);
-        if (childRes.rows.length === 0) return res.status(404).json({ message: 'Ребёнок не найден' });
-        await pool.query(`
-      INSERT INTO "Посещенные платные занятия" ("ID_Ребенка", "ID_Занятия", "Дата_проведения")
-      VALUES ($1, $2, $3)
-    `, [childRes.rows[0].ID_Ребенка, lessonId, date]);
+        await pool.query(
+            `INSERT INTO "Посещенные платные занятия" ("ID_Ребенка", "ID_Занятия", "Дата_проведения")
+       VALUES ($1, $2, $3)`,
+            [childId, lessonId, date]
+        );
         res.json({ success: true, message: 'Запись успешно оформлена' });
     } catch (err) {
         res.status(500).json({ message: err.message });

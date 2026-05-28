@@ -1,13 +1,64 @@
 const express = require('express');
 const pool = require('../db');
 const authMiddleware = require('../middleware/authMiddleware');
-const bcrypt = require('bcrypt');
 const router = express.Router();
 
 const isAdmin = (req, res, next) => {
-    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Доступ запрещён' });
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Доступ запрещён. Требуется роль admin' });
+    }
     next();
 };
+
+// ========== ПРОФИЛЬ АДМИНИСТРАТОРА ==========
+router.get('/employees/my-profile', authMiddleware, async (req, res) => {
+    try {
+        console.log('🔍 PROFILE REQ.USER:', req.user);
+
+        const result = await pool.query(
+            `SELECT 
+                s."ID_Сотрудника" as id,
+                s."Фамилия",
+                s."Имя",
+                s."Отчество",
+                s."Телефон",
+                d."Название_должности" as "Должность",
+                f."Название_филиала" as "Филиал"
+            FROM "Сотрудники" s
+            LEFT JOIN "Должности" d ON s."ID_Должности" = d."ID_Должности"
+            LEFT JOIN "Филиалы" f ON s."ID_Филиала" = f."ID_Филиалы"
+            WHERE s."ID_Сотрудника" = $1`,
+            [req.user.id]
+        );
+
+        console.log('📊 SQL RESULT:', result.rows);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Сотрудник не найден' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('❌ PROFILE ERROR:', err);
+        res.status(500).json({ message: err.message });
+    }
+});
+
+router.put('/employees/my-profile', authMiddleware, async (req, res) => {
+    try {
+        const { Фамилия, Имя, Отчество, Телефон } = req.body;
+        await pool.query(
+            `UPDATE "Сотрудники" 
+             SET "Фамилия"=$1, "Имя"=$2, "Отчество"=$3, "Телефон"=$4 
+             WHERE "ID_Сотрудника"=$5`,
+            [Фамилия, Имя, Отчество, Телефон, req.user.id]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: err.message });
+    }
+});
 
 // ========== СОТРУДНИКИ ==========
 router.get('/employees', authMiddleware, isAdmin, async (req, res) => {
@@ -17,10 +68,10 @@ router.get('/employees', authMiddleware, isAdmin, async (req, res) => {
 router.post('/employees', authMiddleware, isAdmin, async (req, res) => {
     const { Фамилия, Имя, Телефон } = req.body;
     const result = await pool.query(
-        `INSERT INTO "Сотрудники" ("Фамилия", "Имя", "Телефон") VALUES ($1, $2, $3) RETURNING "ID_Сотрудника"`,
+        `INSERT INTO "Сотрудники" ("Фамилия", "Имя", "Телефон") VALUES ($1, $2, $3) RETURNING "ID_Сотрудника" as id`,
         [Фамилия, Имя, Телефон]
     );
-    res.json({ id: result.rows[0].ID_Сотрудника });
+    res.json({ id: result.rows[0].id });
 });
 router.put('/employees/:id', authMiddleware, isAdmin, async (req, res) => {
     const { Фамилия, Имя, Телефон } = req.body;
@@ -41,10 +92,10 @@ router.get('/children', authMiddleware, isAdmin, async (req, res) => {
 router.post('/children', authMiddleware, isAdmin, async (req, res) => {
     const { Фамилия, Имя, "Дата рождения": Дата_рождения, Пол } = req.body;
     const result = await pool.query(
-        `INSERT INTO "Дети" ("Фамилия", "Имя", "Дата рождения", "Пол") VALUES ($1,$2,$3,$4) RETURNING "ID_Ребенка"`,
+        `INSERT INTO "Дети" ("Фамилия", "Имя", "Дата рождения", "Пол") VALUES ($1,$2,$3,$4) RETURNING "ID_Ребенка" as id`,
         [Фамилия, Имя, Дата_рождения, Пол]
     );
-    res.json({ id: result.rows[0].ID_Ребенка });
+    res.json({ id: result.rows[0].id });
 });
 router.put('/children/:id', authMiddleware, isAdmin, async (req, res) => {
     const { Фамилия, Имя, "Дата рождения": Дата_рождения, Пол } = req.body;
@@ -65,10 +116,10 @@ router.get('/parents', authMiddleware, isAdmin, async (req, res) => {
 router.post('/parents', authMiddleware, isAdmin, async (req, res) => {
     const { Фамилия, Имя, Телефон } = req.body;
     const result = await pool.query(
-        `INSERT INTO "Родители" ("Фамилия", "Имя", "Телефон") VALUES ($1,$2,$3) RETURNING "Id_Родителя"`,
+        `INSERT INTO "Родители" ("Фамилия", "Имя", "Телефон") VALUES ($1,$2,$3) RETURNING "Id_Родителя" as id`,
         [Фамилия, Имя, Телефон]
     );
-    res.json({ id: result.rows[0].Id_Родителя });
+    res.json({ id: result.rows[0].id });
 });
 router.put('/parents/:id', authMiddleware, isAdmin, async (req, res) => {
     const { Фамилия, Имя, Телефон } = req.body;
@@ -89,10 +140,10 @@ router.get('/groups', authMiddleware, isAdmin, async (req, res) => {
 router.post('/groups', authMiddleware, isAdmin, async (req, res) => {
     const { Название_Группы, ID_Категории } = req.body;
     const result = await pool.query(
-        `INSERT INTO "Группы" ("Название_Группы", "ID_Категории") VALUES ($1,$2) RETURNING "ID_Группы"`,
+        `INSERT INTO "Группы" ("Название_Группы", "ID_Категории") VALUES ($1,$2) RETURNING "ID_Группы" as id`,
         [Название_Группы, ID_Категории]
     );
-    res.json({ id: result.rows[0].ID_Группы });
+    res.json({ id: result.rows[0].id });
 });
 router.put('/groups/:id', authMiddleware, isAdmin, async (req, res) => {
     const { Название_Группы, ID_Категории } = req.body;
@@ -105,7 +156,7 @@ router.delete('/groups/:id', authMiddleware, isAdmin, async (req, res) => {
     res.json({ success: true });
 });
 
-// ========== ЗАНЯТИЯ (индивидуальные) ==========
+// ========== ЗАНЯТИЯ ==========
 router.get('/lessons', authMiddleware, isAdmin, async (req, res) => {
     const result = await pool.query(`SELECT "ID_Занятия" as id, "Название", "Стоимость" FROM "Индивидуальные занятия"`);
     res.json(result.rows);
@@ -113,10 +164,10 @@ router.get('/lessons', authMiddleware, isAdmin, async (req, res) => {
 router.post('/lessons', authMiddleware, isAdmin, async (req, res) => {
     const { Название, Стоимость } = req.body;
     const result = await pool.query(
-        `INSERT INTO "Индивидуальные занятия" ("Название", "Стоимость") VALUES ($1,$2) RETURNING "ID_Занятия"`,
+        `INSERT INTO "Индивидуальные занятия" ("Название", "Стоимость") VALUES ($1,$2) RETURNING "ID_Занятия" as id`,
         [Название, Стоимость]
     );
-    res.json({ id: result.rows[0].ID_Занятия });
+    res.json({ id: result.rows[0].id });
 });
 router.put('/lessons/:id', authMiddleware, isAdmin, async (req, res) => {
     const { Название, Стоимость } = req.body;

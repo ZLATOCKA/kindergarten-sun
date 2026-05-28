@@ -7,47 +7,56 @@ const API_URL = 'http://localhost:5000/api';
 
 function ParentDashboard() {
     const { user } = useAuth();
-    const [child, setChild] = useState(null);
+    const [children, setChildren] = useState([]);
     const [relatives, setRelatives] = useState([]);
     const [certificates, setCertificates] = useState([]);
     const [vaccinations, setVaccinations] = useState([]);
     const [allergies, setAllergies] = useState([]);
     const [attendance, setAttendance] = useState([]);
-    const [myLessons, setMyLessons] = useState([]); // занятия, на которые записан ребёнок
+    const [myLessons, setMyLessons] = useState([]);
     const [payments, setPayments] = useState([]);
-    const [paidLessons, setPaidLessons] = useState([]); // доступные для записи
+    const [paidLessons, setPaidLessons] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showBooking, setShowBooking] = useState(false);
     const [selectedLesson, setSelectedLesson] = useState('');
     const [bookingDate, setBookingDate] = useState('');
+    const [selectedChildId, setSelectedChildId] = useState(null);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const token = localStorage.getItem('token');
                 const headers = { Authorization: `Bearer ${token}` };
-                const [childRes, familyRes, certsRes, vaccRes, allergRes, attendRes, myLessRes, paysRes, paidLessRes] = await Promise.all([
-                    axios.get(`${API_URL}/children/my-child`, { headers }),
+
+                const [childrenRes, familyRes, certsRes, vaccRes, allergRes, attendRes, myLessRes, paysRes, paidLessRes] = await Promise.all([
+                    axios.get(`${API_URL}/children/my-children`, { headers }),
                     axios.get(`${API_URL}/children/my-child/family-tree`, { headers }),
-                    axios.get(`${API_URL}/children/my-child/certificates`, { headers }),
-                    axios.get(`${API_URL}/children/my-child/vaccinations`, { headers }),
-                    axios.get(`${API_URL}/children/my-child/allergies`, { headers }),
-                    axios.get(`${API_URL}/children/my-child/attendance`, { headers }),
-                    axios.get(`${API_URL}/children/my-child/lessons`, { headers }),
+                    axios.get(`${API_URL}/children/my-children/certificates`, { headers }),
+                    axios.get(`${API_URL}/children/my-children/vaccinations`, { headers }),
+                    axios.get(`${API_URL}/children/my-children/allergies`, { headers }),
+                    axios.get(`${API_URL}/children/my-children/attendance`, { headers }),
+                    axios.get(`${API_URL}/children/my-children/lessons`, { headers }),
                     axios.get(`${API_URL}/children/my-payments`, { headers }),
                     axios.get(`${API_URL}/children/paid-lessons`, { headers }),
                 ]);
-                setChild(childRes.data);
+
+                setChildren(childrenRes.data || []);
                 setRelatives(familyRes.data.relatives || []);
-                setCertificates(certsRes.data);
-                setVaccinations(vaccRes.data);
-                setAllergies(allergRes.data);
-                setAttendance(attendRes.data);
-                setMyLessons(myLessRes.data);
-                setPayments(paysRes.data);
-                setPaidLessons(paidLessRes.data);
+                setCertificates(certsRes.data || []);
+                setVaccinations(vaccRes.data || []);
+                setAllergies(allergRes.data || []);
+                setAttendance(attendRes.data || []);
+                setMyLessons(myLessRes.data || []);
+                setPayments(paysRes.data || []);
+                setPaidLessons(paidLessRes.data || []);
+
+                if (childrenRes.data && childrenRes.data.length > 0) {
+                    setSelectedChildId(childrenRes.data[0].ID_Ребенка);
+                }
             } catch (err) {
                 console.error(err);
+                setError(err.response?.data?.message || err.message);
             } finally {
                 setLoading(false);
             }
@@ -56,20 +65,22 @@ function ParentDashboard() {
     }, []);
 
     const handleBookLesson = async () => {
-        if (!selectedLesson || !bookingDate) {
-            alert('Выберите занятие и дату');
+        if (!selectedLesson || !bookingDate || !selectedChildId) {
+            alert('Выберите ребёнка, занятие и дату');
             return;
         }
         try {
             const token = localStorage.getItem('token');
             const headers = { Authorization: `Bearer ${token}` };
-            await axios.post(`${API_URL}/children/register-lesson`, { lessonId: selectedLesson, date: bookingDate }, { headers });
+            await axios.post(`${API_URL}/children/register-lesson`,
+                { lessonId: selectedLesson, date: bookingDate, childId: selectedChildId },
+                { headers }
+            );
             alert('Запись успешно оформлена!');
             setShowBooking(false);
             setSelectedLesson('');
             setBookingDate('');
-            // Обновить список занятий ребёнка
-            const updated = await axios.get(`${API_URL}/children/my-child/lessons`, { headers });
+            const updated = await axios.get(`${API_URL}/children/my-children/lessons`, { headers });
             setMyLessons(updated.data);
         } catch (err) {
             alert(err.response?.data?.message || 'Ошибка записи');
@@ -77,11 +88,23 @@ function ParentDashboard() {
     };
 
     if (loading) return <div className={styles.parentContainer} style={{ textAlign: 'center', padding: '50px' }}>Загрузка...</div>;
-    if (!child) return <div className={styles.parentContainer} style={{ textAlign: 'center', padding: '50px' }}>Ребёнок не найден. Свяжитесь с администратором.</div>;
+    if (error) return <div className={styles.parentContainer} style={{ textAlign: 'center', padding: '50px', color: 'red' }}>Ошибка: {error}</div>;
 
-    const birthDate = new Date(child["Дата рождения"]);
+    if (!children || children.length === 0) {
+        return <div className={styles.parentContainer} style={{ textAlign: 'center', padding: '50px' }}>Ребёнок не найден. Свяжитесь с администратором.</div>;
+    }
+
+    const currentChild = children.find(c => c.ID_Ребенка === selectedChildId) || children[0];
+    const birthDate = new Date(currentChild["Дата рождения"]);
     const age = Math.floor((new Date() - birthDate) / (1000 * 60 * 60 * 24 * 365));
     const totalToPay = myLessons.reduce((sum, l) => sum + (l.Стоимость || 0), 0);
+
+    // Фильтруем данные для выбранного ребёнка
+    const childCertificates = certificates.filter(c => c.ID_Ребенка === selectedChildId);
+    const childVaccinations = vaccinations.filter(v => v.ID_Ребенка === selectedChildId);
+    const childAllergies = allergies.filter(a => a.ID_Ребенка === selectedChildId);
+    const childAttendance = attendance.filter(a => a.ID_Ребенка === selectedChildId);
+    const childLessons = myLessons.filter(l => l.ID_Ребенка === selectedChildId);
 
     return (
         <div className={styles.parentContainer}>
@@ -100,13 +123,32 @@ function ParentDashboard() {
                         </div>
                     </div>
                 </div>
+
                 <div className={styles.parentBody}>
                     {/* Левая колонка */}
                     <div>
+                        {/* Выбор ребёнка, если их несколько */}
+                        {children.length > 1 && (
+                            <div className={styles.childSelector}>
+                                <label>Выберите ребёнка: </label>
+                                <select
+                                    value={selectedChildId || ''}
+                                    onChange={(e) => setSelectedChildId(parseInt(e.target.value))}
+                                    style={{ padding: '8px', borderRadius: '20px', marginLeft: '10px' }}
+                                >
+                                    {children.map(c => (
+                                        <option key={c.ID_Ребенка} value={c.ID_Ребенка}>
+                                            {c.Фамилия} {c.Имя}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
                         <div className={styles.childCard}>
                             <div className={styles.childPhoto}>👧</div>
-                            <div className={styles.childName}>{child.Фамилия} {child.Имя}</div>
-                            <div className={styles.childDetails}>{age} лет, группа «{child.Название_Группы}»</div>
+                            <div className={styles.childName}>{currentChild.Фамилия} {currentChild.Имя}</div>
+                            <div className={styles.childDetails}>{age} лет, группа «{currentChild.Название_Группы}»</div>
                             <button className={styles.detailsBtn} onClick={() => alert('Детальная информация будет позже')}>Информация о ребёнке →</button>
                         </div>
 
@@ -128,13 +170,13 @@ function ParentDashboard() {
                         <div className={styles.lessonsCard}>
                             <div className={styles.sectionTitle}>💰 Индивидуальные занятия (ребёнка)</div>
                             <div className={styles.lessonsGrid}>
-                                {myLessons.map(l => (
+                                {childLessons.map(l => (
                                     <div key={l.ID_Занятия} className={styles.lessonCard}>
                                         <span className={styles.lessonName}>{l.Название}</span>
                                         <span className={styles.lessonPrice}>{l.Стоимость} ₽</span>
                                     </div>
                                 ))}
-                                {myLessons.length === 0 && <p>Нет записей</p>}
+                                {childLessons.length === 0 && <p>Нет записей</p>}
                             </div>
                             <div style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>Итого к оплате: {totalToPay} ₽</div>
                             <button className={styles.detailsBtn} onClick={() => setShowBooking(true)}>+ Записаться на новое занятие</button>
@@ -155,32 +197,32 @@ function ParentDashboard() {
                         </div>
                     </div>
 
-                    {/* Правая колонка – краткая информация о справках, прививках, аллергиях, посещаемости */}
+                    {/* Правая колонка */}
                     <div>
                         <div className={styles.childCard} style={{ marginBottom: '1rem' }}>
                             <div className={styles.sectionTitle}>📄 Справки</div>
-                            {certificates.slice(0, 2).map(c => (
+                            {childCertificates.slice(0, 2).map(c => (
                                 <div key={c.ID_Справки} className={styles.lessonCard}>{c.Тип_справка} ({new Date(c.Дата_начала).toLocaleDateString()})</div>
                             ))}
                             <button className={styles.detailsBtn} onClick={() => alert('Все справки')}>Подробнее →</button>
                         </div>
                         <div className={styles.childCard} style={{ marginBottom: '1rem' }}>
                             <div className={styles.sectionTitle}>💉 Прививки</div>
-                            {vaccinations.slice(0, 2).map(v => (
+                            {childVaccinations.slice(0, 2).map(v => (
                                 <div key={v.ID_Записи_прививки} className={styles.lessonCard}>{v.Название_прививки} – {v.Статус}</div>
                             ))}
                             <button className={styles.detailsBtn} onClick={() => alert('Все прививки')}>Подробнее →</button>
                         </div>
                         <div className={styles.childCard} style={{ marginBottom: '1rem' }}>
                             <div className={styles.sectionTitle}>🌿 Аллергии</div>
-                            {allergies.map(a => (
+                            {childAllergies.map(a => (
                                 <div key={a.ID_Продукта} className={styles.lessonCard}>🚫 {a.Название_продукта}</div>
                             ))}
                             <button className={styles.detailsBtn} onClick={() => alert('Все аллергии')}>Подробнее →</button>
                         </div>
                         <div className={styles.childCard}>
                             <div className={styles.sectionTitle}>📅 Посещаемость</div>
-                            {attendance.slice(0, 3).map(a => (
+                            {childAttendance.slice(0, 3).map(a => (
                                 <div key={a.Дата} className={styles.lessonCard}>{new Date(a.Дата).toLocaleDateString()} – {a.Время_прихода?.slice(0, 5)}</div>
                             ))}
                             <button className={styles.detailsBtn} onClick={() => alert('Вся посещаемость')}>Подробнее →</button>
@@ -195,6 +237,19 @@ function ParentDashboard() {
                     <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
                         <button className={styles.modalClose} onClick={() => setShowBooking(false)}>✕</button>
                         <h3>Запись на платное занятие</h3>
+                        {children.length > 1 && (
+                            <select
+                                value={selectedChildId || ''}
+                                onChange={(e) => setSelectedChildId(parseInt(e.target.value))}
+                                style={{ width: '100%', padding: '8px', marginBottom: '10px' }}
+                            >
+                                {children.map(c => (
+                                    <option key={c.ID_Ребенка} value={c.ID_Ребенка}>
+                                        {c.Фамилия} {c.Имя}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
                         <select
                             value={selectedLesson}
                             onChange={(e) => setSelectedLesson(e.target.value)}

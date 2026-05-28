@@ -42,21 +42,6 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const register = async (userData, userRole) => {
-        try {
-            const response = await axios.post(`${API_URL}/auth/register`, { ...userData, role: userRole });
-            const { token, user: newUser } = response.data;
-            localStorage.setItem('token', token);
-            localStorage.setItem('user', JSON.stringify(newUser));
-            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-            setUser(newUser);
-            setRole(newUser.role);
-            return { success: true };
-        } catch (error) {
-            return { success: false, error: error.response?.data?.message || 'Ошибка регистрации' };
-        }
-    };
-
     const logout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -66,7 +51,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, role, loading, login, register, logout }}>
+        <AuthContext.Provider value={{ user, role, loading, login, logout }}>
             {children}
         </AuthContext.Provider>
     );
