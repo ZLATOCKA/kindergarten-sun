@@ -12,26 +12,27 @@ export default function EmployeeDashboard() {
     const [error, setError] = useState(null);
 
     useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            setError('Нет токена авторизации');
+            setLoading(false);
+            return;
+        }
+
         const fetchData = async () => {
             try {
-                const token = localStorage.getItem('token');
-                if (!token) {
-                    setError('Нет токена авторизации');
-                    setLoading(false);
-                    return;
-                }
-
-                console.log('📡 Запрос профиля сотрудника...');
-                const profileRes = await api.get('/employees/my-profile');
-                console.log('✅ Профиль получен:', profileRes.data);
-
-                const scheduleRes = await api.get('/employees/my-schedule');
-
+                const headers = { Authorization: `Bearer ${token}` };
+                const [profileRes, scheduleRes, vacationsRes, lessonsRes] = await Promise.all([
+                    axios.get(`${API_URL}/employees/my-profile`, { headers }),
+                    axios.get(`${API_URL}/employees/my-schedule`, { headers }),
+                    axios.get(`${API_URL}/employees/my-vacations`, { headers }),
+                    axios.get(`${API_URL}/employees/my-individual-lessons`, { headers }),
+                ]);
                 setProfile(profileRes.data);
                 setFormData(profileRes.data || {});
                 setSchedule(scheduleRes.data || []);
             } catch (err) {
-                console.error('❌ Ошибка загрузки:', err);
+                console.error('Ошибка загрузки данных сотрудника:', err);
                 setError(err.response?.data?.message || err.message);
             } finally {
                 setLoading(false);
@@ -40,21 +41,9 @@ export default function EmployeeDashboard() {
         fetchData();
     }, []);
 
-    const handleSave = async () => {
-        try {
-            await api.put('/employees/my-profile', formData);
-            setProfile(formData);
-            setEditing(false);
-            alert('Профиль обновлён');
-        } catch (err) {
-            alert('Ошибка сохранения');
-        }
-    };
-
-    // ... остальной код (календарь) без изменений
-    const getDaysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
-    const getFirstDayIndex = (y, m) => {
-        let day = new Date(y, m, 1).getDay();
+    const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+    const getFirstDayIndex = (year, month) => {
+        let day = new Date(year, month, 1).getDay();
         return day === 0 ? 6 : day - 1;
     };
     const year = currentMonth.getFullYear();
@@ -65,9 +54,24 @@ export default function EmployeeDashboard() {
     const blanks = Array.from({ length: firstDay });
     const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
-    if (loading) return <div className="employee-loading">Загрузка...</div>;
-    if (error) return <div className="employee-loading error">{error}</div>;
-    if (!profile) return <div className="employee-loading">Данные не найдены</div>;
+    const isWeekend = (day) => {
+        const date = new Date(year, month, day);
+        return date.getDay() === 0 || date.getDay() === 6;
+    };
+    const isVacation = (day) => {
+        const date = new Date(year, month, day);
+        return vacations.some(v => new Date(v.start) <= date && new Date(v.end) >= date);
+    };
+    const isWorkDay = (day) => {
+        const date = new Date(year, month, day);
+        return schedule.some(s => new Date(s.Дата).toDateString() === date.toDateString());
+    };
+    const getDayClass = (day) => {
+        if (isVacation(day)) return styles.vacation;
+        if (isWeekend(day)) return styles.weekend;
+        if (isWorkDay(day)) return styles.work;
+        return '';
+    };
 
     return (
         <div className="employee-container">
