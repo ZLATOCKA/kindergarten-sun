@@ -10,7 +10,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const medicalRoutes = require('./routes/medicalRoutes');
 const supplyRoutes = require('./routes/supplyRoutes');
-const adminExtendedRoutes = require('./routes/adminExtendedRoutes');
+const parentRoutes = require('./routes/parentRoutes');
 
 const app = express();
 app.use(cors());
@@ -23,8 +23,8 @@ app.use('/api/lessons', lessonsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin', medicalRoutes);
 app.use('/api/admin', supplyRoutes);
-app.use('/api/admin', adminExtendedRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/parent', parentRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const authMiddleware = require('../middleware/authMiddleware');
+const bcrypt = require('bcrypt');
 const router = express.Router();
 
 // ========== ПОЛУЧИТЬ ПРОФИЛЬ РОДИТЕЛЯ ==========
@@ -15,12 +16,12 @@ router.get('/profile', authMiddleware, async (req, res) => {
                 p."Адрес",
                 p."Телефон",
                 p."Email",
-                sr."Степени_родства" as "Степень_родства"
+                COALESCE(sr."Степени_родства", 'Родитель') as "Степень_родства"
             FROM kindergarten_db."Родители" p
             LEFT JOIN kindergarten_db."Степень родства" sr ON p."ID_Степени" = sr."ID_Степени"
             WHERE p."Id_Родителя" = $1
         `, [req.user.id]);
-        
+
         if (result.rows.length === 0) {
             return res.status(404).json({ message: 'Родитель не найден' });
         }
@@ -40,14 +41,13 @@ router.put('/profile', authMiddleware, async (req, res) => {
                 "Фамилия"=$1, "Имя"=$2, "Отчество"=$3, "Адрес"=$4, "Телефон"=$5, "Email"=$6
         `;
         const params = [Фамилия, Имя, Отчество, Адрес, Телефон, Email, req.user.id];
-        
-        if (password) {
-            const bcrypt = require('bcrypt');
+
+        if (password && password.trim() !== '') {
             const hashedPassword = await bcrypt.hash(password, 10);
             query += `, "PasswordHash"=$${params.length + 1}`;
             params.push(hashedPassword);
         }
-        
+
         query += ` WHERE "Id_Родителя"=$${params.length}`;
         await pool.query(query, params);
         res.json({ success: true });
@@ -68,8 +68,8 @@ router.get('/my-children', authMiddleware, async (req, res) => {
                 d."Отчество",
                 d."Дата рождения",
                 d."Пол",
-                g."Название_Группы" as "Группа",
-                f."Название_филиала" as "Филиал"
+                COALESCE(g."Название_Группы", 'Не назначена') as "Группа",
+                COALESCE(f."Название_филиала", 'Не указан') as "Филиал"
             FROM kindergarten_db."Родители-дети" rd
             JOIN kindergarten_db."Дети" d ON rd."ID_Ребенка" = d."ID_Ребенка"
             LEFT JOIN kindergarten_db."Дети в группе" dg ON d."ID_Ребенка" = dg."ID_Ребенка"
@@ -87,20 +87,29 @@ router.get('/my-children', authMiddleware, async (req, res) => {
 // ========== ПОЛУЧИТЬ СЕМЕЙНОЕ ДРЕВО ==========
 router.get('/family-tree', authMiddleware, async (req, res) => {
     try {
+        const childrenResult = await pool.query(`
+            SELECT "ID_Ребенка" FROM kindergarten_db."Родители-дети" WHERE "ID_Родителя" = $1
+        `, [req.user.id]);
+
+        if (childrenResult.rows.length === 0) {
+            return res.json({ relatives: [] });
+        }
+
+        const childIds = childrenResult.rows.map(r => r.ID_Ребенка);
+
         const result = await pool.query(`
-            SELECT 
+            SELECT DISTINCT
                 r."Фамилия",
                 r."Имя",
                 r."Отчество",
-                sr."Степени_родства" as "Статус"
+                COALESCE(sr."Степени_родства", 'Родственник') as status
             FROM kindergarten_db."Родители-дети" rd
             JOIN kindergarten_db."Родители" r ON rd."ID_Родителя" = r."Id_Родителя"
-            JOIN kindergarten_db."Степень родства" sr ON r."ID_Степени" = sr."ID_Степени"
-            WHERE rd."ID_Ребенка" IN (
-                SELECT "ID_Ребенка" FROM kindergarten_db."Родители-дети" WHERE "ID_Родителя" = $1
-            )
-            GROUP BY r."Id_Родителя", r."Фамилия", r."Имя", r."Отчество", sr."Степени_родства"
-        `, [req.user.id]);
+            LEFT JOIN kindergarten_db."Степень родства" sr ON r."ID_Степени" = sr."ID_Степени"
+            WHERE rd."ID_Ребенка" = ANY($1::int[])
+            ORDER BY r."Фамилия", r."Имя"
+        `, [childIds]);
+
         res.json({ relatives: result.rows });
     } catch (err) {
         console.error('Get family tree error:', err);
@@ -119,10 +128,20 @@ router.get('/available-lessons', authMiddleware, async (req, res) => {
                 l."Время_начала",
                 l."Время_окончания",
                 l."Стоимость",
-                s."Фамилия" || ' ' || s."Имя" as "Педагог"
+                s."Фамилия" || ' ' || s."Имя" as teacher
             FROM kindergarten_db."Индивидуальные занятия" l
             LEFT JOIN kindergarten_db."Сотрудники" s ON l."ID_Сотрудника" = s."ID_Сотрудника"
-            ORDER BY l."ID_Занятия"
+            ORDER BY 
+                CASE l."День_недели"
+                    WHEN 'Понедельник' THEN 1
+                    WHEN 'Вторник' THEN 2
+                    WHEN 'Среда' THEN 3
+                    WHEN 'Четверг' THEN 4
+                    WHEN 'Пятница' THEN 5
+                    WHEN 'Суббота' THEN 6
+                    WHEN 'Воскресенье' THEN 7
+                    ELSE 8
+                END, l."Время_начала"
         `);
         res.json(result.rows);
     } catch (err) {
@@ -141,7 +160,7 @@ router.get('/child-lessons/:childId', authMiddleware, async (req, res) => {
                 l."Название",
                 l."Стоимость",
                 s."Фамилия" || ' ' || s."Имя" as teacher,
-                ppz."Дата_проведения" >= CURRENT_DATE as is_upcoming
+                CASE WHEN ppz."Дата_проведения" >= CURRENT_DATE THEN true ELSE false END as is_upcoming
             FROM kindergarten_db."Посещенные платные занятия" ppz
             JOIN kindergarten_db."Индивидуальные занятия" l ON ppz."ID_Занятия" = l."ID_Занятия"
             JOIN kindergarten_db."Сотрудники" s ON l."ID_Сотрудника" = s."ID_Сотрудника"
@@ -159,23 +178,21 @@ router.get('/child-lessons/:childId', authMiddleware, async (req, res) => {
 router.post('/book-lesson', authMiddleware, async (req, res) => {
     const { child_id, lesson_id, date } = req.body;
     try {
-        // Проверяем, не записан ли уже ребёнок на это занятие в эту дату
         const check = await pool.query(`
             SELECT * FROM kindergarten_db."Посещенные платные занятия"
             WHERE "ID_Ребенка" = $1 AND "ID_Занятия" = $2 AND "Дата_проведения" = $3
         `, [child_id, lesson_id, date]);
-        
+
         if (check.rows.length > 0) {
             return res.status(400).json({ error: 'Ребёнок уже записан на это занятие' });
         }
-        
-        const result = await pool.query(`
+
+        await pool.query(`
             INSERT INTO kindergarten_db."Посещенные платные занятия" ("ID_Ребенка", "ID_Занятия", "Дата_проведения")
             VALUES ($1, $2, $3)
-            RETURNING *
         `, [child_id, lesson_id, date]);
-        
-        res.json({ success: true, booking: result.rows[0] });
+
+        res.json({ success: true });
     } catch (err) {
         console.error('Book lesson error:', err);
         res.status(500).json({ error: err.message });
@@ -199,22 +216,31 @@ router.delete('/cancel-lesson/:childId/:lessonId/:date', authMiddleware, async (
 // ========== ПОЛУЧИТЬ МЕДИЦИНСКИЕ ДАННЫЕ РЕБЁНКА ==========
 router.get('/child-medical/:childId', authMiddleware, async (req, res) => {
     try {
-        const [certificates, vaccinations, allergies] = await Promise.all([
-            pool.query(`SELECT * FROM kindergarten_db."Справки" WHERE "ID_Ребенка" = $1`, [req.params.childId]),
-            pool.query(`
-                SELECT vr.*, v."Название_прививки" 
-                FROM kindergarten_db."Прививки ребенка" vr
-                JOIN kindergarten_db."Прививки" v ON vr."ID_Прививки" = v."ID_Прививки"
-                WHERE vr."ID_Ребенка" = $1
-            `, [req.params.childId]),
-            pool.query(`
-                SELECT fp."Название_продукта"
-                FROM kindergarten_db."Список запрещенных продуктов ребенка" cfp
-                JOIN kindergarten_db."Запрещенные продукты" fp ON cfp."ID_Продукта" = fp."ID_Продукта"
-                WHERE cfp."ID_Ребенка" = $1
-            `, [req.params.childId])
-        ]);
-        res.json({ certificates: certificates.rows, vaccinations: vaccinations.rows, allergies: allergies.rows });
+        const certificates = await pool.query(`
+            SELECT "ID_Справки" as id, "Тип_справка" as type, "Дата_начала" as start_date, "Дата_окончания" as end_date
+            FROM kindergarten_db."Справки" WHERE "ID_Ребенка" = $1
+        `, [req.params.childId]);
+
+        const vaccinations = await pool.query(`
+            SELECT vr."ID_Записи_прививки" as id, v."Название_прививки" as name, vr."Дата_проведения" as date, vr."Статус" as status
+            FROM kindergarten_db."Прививки ребенка" vr
+            JOIN kindergarten_db."Прививки" v ON vr."ID_Прививки" = v."ID_Прививки"
+            WHERE vr."ID_Ребенка" = $1
+        `, [req.params.childId]);
+
+        // ИСПРАВЛЕНО: правильное название таблицы "Список запрещенных продуктов"
+        const allergies = await pool.query(`
+            SELECT fp."Название_продукта" as product
+            FROM kindergarten_db."Список запрещенных продуктов" cfp
+            JOIN kindergarten_db."Запрещенные продукты" fp ON cfp."ID_Продукта" = fp."ID_Продукта"
+            WHERE cfp."ID_Ребенка" = $1
+        `, [req.params.childId]);
+
+        res.json({
+            certificates: certificates.rows,
+            vaccinations: vaccinations.rows,
+            allergies: allergies.rows
+        });
     } catch (err) {
         console.error('Get medical data error:', err);
         res.status(500).json({ error: err.message });
@@ -226,9 +252,9 @@ router.get('/child-attendance/:childId', authMiddleware, async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT 
-                "Дата",
-                "Время_прихода",
-                "Время_ухода"
+                "Дата" as date,
+                "Время_прихода" as arrival,
+                "Время_ухода" as departure
             FROM kindergarten_db."Посещаемость"
             WHERE "ID_Ребенка" = $1
             ORDER BY "Дата" DESC
@@ -257,4 +283,42 @@ router.get('/total-cost/:childId', authMiddleware, async (req, res) => {
     }
 });
 
+// ========== ОТМЕНИТЬ ЗАПИСЬ НА ЗАНЯТИЕ ==========
+router.delete('/cancel-lesson/:childId/:lessonId/:date', authMiddleware, async (req, res) => {
+    try {
+        const { childId, lessonId, date } = req.params;
+
+        console.log('Cancel lesson request:', { childId, lessonId, date });
+
+        // Проверяем, существует ли запись
+        const checkResult = await pool.query(`
+            SELECT * FROM kindergarten_db."Посещенные платные занятия"
+            WHERE "ID_Ребенка" = $1 AND "ID_Занятия" = $2 AND "Дата_проведения" = $3
+        `, [parseInt(childId), parseInt(lessonId), date]);
+
+        console.log('Found records:', checkResult.rows);
+
+        if (checkResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Запись не найдена' });
+        }
+
+        // Удаляем запись
+        const deleteResult = await pool.query(`
+            DELETE FROM kindergarten_db."Посещенные платные занятия"
+            WHERE "ID_Ребенка" = $1 AND "ID_Занятия" = $2 AND "Дата_проведения" = $3
+            RETURNING *
+        `, [parseInt(childId), parseInt(lessonId), date]);
+
+        console.log('Deleted record:', deleteResult.rows);
+
+        res.json({
+            success: true,
+            deleted: deleteResult.rows[0],
+            message: 'Запись успешно отменена'
+        });
+    } catch (err) {
+        console.error('Cancel lesson error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
 module.exports = router;

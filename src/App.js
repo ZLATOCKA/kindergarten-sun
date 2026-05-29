@@ -17,7 +17,6 @@ import ReportsPage from './pages/ReportsPage';
 
 function App() {
     const { user, loading } = useAuth();
-
     if (loading) {
         return <div style={{ textAlign: 'center', padding: '50px' }}>Загрузка...</div>;
     }

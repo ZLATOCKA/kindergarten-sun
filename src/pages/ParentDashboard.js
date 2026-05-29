@@ -1,27 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import styles from './styles/ParentDashboard.module.css';
+import './styles/ParentDashboard.css';
 
 const API_URL = 'http://localhost:5000/api';
 
 function ParentDashboard() {
-    const { user } = useAuth();
+    const { logout, user } = useAuth();
+    const [profile, setProfile] = useState(null);
+    const [profileForm, setProfileForm] = useState({});
+    const [editingProfile, setEditingProfile] = useState(false);
     const [children, setChildren] = useState([]);
     const [relatives, setRelatives] = useState([]);
-    const [certificates, setCertificates] = useState([]);
-    const [vaccinations, setVaccinations] = useState([]);
-    const [allergies, setAllergies] = useState([]);
-    const [attendance, setAttendance] = useState([]);
-    const [myLessons, setMyLessons] = useState([]);
-    const [payments, setPayments] = useState([]);
-    const [paidLessons, setPaidLessons] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [selectedChildId, setSelectedChildId] = useState(null);
+    const [availableLessons, setAvailableLessons] = useState([]);
+    const [childLessons, setChildLessons] = useState([]);
     const [showBooking, setShowBooking] = useState(false);
     const [selectedLesson, setSelectedLesson] = useState('');
     const [bookingDate, setBookingDate] = useState('');
-    const [selectedChildId, setSelectedChildId] = useState(null);
+    const [medicalData, setMedicalData] = useState({ certificates: [], vaccinations: [], allergies: [] });
+    const [attendance, setAttendance] = useState([]);
+    const [totalCost, setTotalCost] = useState(0);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    const [showCertificatesModal, setShowCertificatesModal] = useState(false);
+    const [showVaccinationsModal, setShowVaccinationsModal] = useState(false);
+    const [showAllergiesModal, setShowAllergiesModal] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -29,33 +34,26 @@ function ParentDashboard() {
                 const token = localStorage.getItem('token');
                 const headers = { Authorization: `Bearer ${token}` };
 
-                const [childrenRes, familyRes, certsRes, vaccRes, allergRes, attendRes, myLessRes, paysRes, paidLessRes] = await Promise.all([
-                    axios.get(`${API_URL}/children/my-children`, { headers }),
-                    axios.get(`${API_URL}/children/my-child/family-tree`, { headers }),
-                    axios.get(`${API_URL}/children/my-children/certificates`, { headers }),
-                    axios.get(`${API_URL}/children/my-children/vaccinations`, { headers }),
-                    axios.get(`${API_URL}/children/my-children/allergies`, { headers }),
-                    axios.get(`${API_URL}/children/my-children/attendance`, { headers }),
-                    axios.get(`${API_URL}/children/my-children/lessons`, { headers }),
-                    axios.get(`${API_URL}/children/my-payments`, { headers }),
-                    axios.get(`${API_URL}/children/paid-lessons`, { headers }),
+                const [profileRes, childrenRes, familyRes, lessonsRes] = await Promise.all([
+                    axios.get(`${API_URL}/parent/profile`, { headers }),
+                    axios.get(`${API_URL}/parent/my-children`, { headers }),
+                    axios.get(`${API_URL}/parent/family-tree`, { headers }),
+                    axios.get(`${API_URL}/parent/available-lessons`, { headers })
                 ]);
 
+                setProfile(profileRes.data);
+                setProfileForm(profileRes.data || {});
                 setChildren(childrenRes.data || []);
                 setRelatives(familyRes.data.relatives || []);
-                setCertificates(certsRes.data || []);
-                setVaccinations(vaccRes.data || []);
-                setAllergies(allergRes.data || []);
-                setAttendance(attendRes.data || []);
-                setMyLessons(myLessRes.data || []);
-                setPayments(paysRes.data || []);
-                setPaidLessons(paidLessRes.data || []);
+                setAvailableLessons(lessonsRes.data || []);
 
                 if (childrenRes.data && childrenRes.data.length > 0) {
-                    setSelectedChildId(childrenRes.data[0].ID_Ребенка);
+                    const firstChildId = childrenRes.data[0].id;
+                    setSelectedChildId(firstChildId);
+                    await loadChildData(firstChildId);
                 }
             } catch (err) {
-                console.error(err);
+                console.error('Fetch error:', err);
                 setError(err.response?.data?.message || err.message);
             } finally {
                 setLoading(false);
@@ -64,211 +62,376 @@ function ParentDashboard() {
         fetchData();
     }, []);
 
-    const handleBookLesson = async () => {
-        if (!selectedLesson || !bookingDate || !selectedChildId) {
-            alert('Выберите ребёнка, занятие и дату');
-            return;
-        }
+    const loadChildData = async (childId) => {
         try {
             const token = localStorage.getItem('token');
             const headers = { Authorization: `Bearer ${token}` };
-            await axios.post(`${API_URL}/children/register-lesson`,
-                { lessonId: selectedLesson, date: bookingDate, childId: selectedChildId },
-                { headers }
-            );
-            alert('Запись успешно оформлена!');
-            setShowBooking(false);
-            setSelectedLesson('');
-            setBookingDate('');
-            const updated = await axios.get(`${API_URL}/children/my-children/lessons`, { headers });
-            setMyLessons(updated.data);
+
+            const [lessonsRes, medicalRes, attendanceRes, costRes] = await Promise.all([
+                axios.get(`${API_URL}/parent/child-lessons/${childId}`, { headers }),
+                axios.get(`${API_URL}/parent/child-medical/${childId}`, { headers }),
+                axios.get(`${API_URL}/parent/child-attendance/${childId}`, { headers }),
+                axios.get(`${API_URL}/parent/total-cost/${childId}`, { headers })
+            ]);
+
+            setChildLessons(lessonsRes.data || []);
+            setMedicalData(medicalRes.data || { certificates: [], vaccinations: [], allergies: [] });
+            setAttendance(attendanceRes.data || []);
+            setTotalCost(costRes.data.total || 0);
         } catch (err) {
-            alert(err.response?.data?.message || 'Ошибка записи');
+            console.error('Load child data error:', err);
         }
     };
 
-    if (loading) return <div className={styles.parentContainer} style={{ textAlign: 'center', padding: '50px' }}>Загрузка...</div>;
-    if (error) return <div className={styles.parentContainer} style={{ textAlign: 'center', padding: '50px', color: 'red' }}>Ошибка: {error}</div>;
+    const handleProfileSave = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            await axios.put(`${API_URL}/parent/profile`, profileForm, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setProfile(profileForm);
+            setEditingProfile(false);
+            alert('Профиль обновлён');
+        } catch (err) {
+            alert('Ошибка сохранения: ' + (err.response?.data?.message || err.message));
+        }
+    };
 
-    if (!children || children.length === 0) {
-        return <div className={styles.parentContainer} style={{ textAlign: 'center', padding: '50px' }}>Ребёнок не найден. Свяжитесь с администратором.</div>;
-    }
+    const handleBookLesson = async () => {
+        if (!selectedLesson || !bookingDate || !selectedChildId) {
+            alert('Выберите занятие и дату');
+            return;
+        }
 
-    const currentChild = children.find(c => c.ID_Ребенка === selectedChildId) || children[0];
-    const birthDate = new Date(currentChild["Дата рождения"]);
-    const age = Math.floor((new Date() - birthDate) / (1000 * 60 * 60 * 24 * 365));
-    const totalToPay = myLessons.reduce((sum, l) => sum + (l.Стоимость || 0), 0);
+        const lesson = availableLessons.find(l => l.id === parseInt(selectedLesson));
+        if (!lesson) {
+            alert('Занятие не найдено');
+            return;
+        }
 
-    // Фильтруем данные для выбранного ребёнка
-    const childCertificates = certificates.filter(c => c.ID_Ребенка === selectedChildId);
-    const childVaccinations = vaccinations.filter(v => v.ID_Ребенка === selectedChildId);
-    const childAllergies = allergies.filter(a => a.ID_Ребенка === selectedChildId);
-    const childAttendance = attendance.filter(a => a.ID_Ребенка === selectedChildId);
-    const childLessons = myLessons.filter(l => l.ID_Ребенка === selectedChildId);
+        const dateObj = new Date(bookingDate);
+        const daysOfWeek = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+        const selectedDayOfWeek = daysOfWeek[dateObj.getDay()];
+
+        if (lesson.День_недели !== selectedDayOfWeek) {
+            alert(`Это занятие проводится по ${lesson.День_недели}. Выбранный день - ${selectedDayOfWeek}. Пожалуйста, выберите правильную дату.`);
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem('token');
+            const headers = { Authorization: `Bearer ${token}` };
+            await axios.post(`${API_URL}/parent/book-lesson`,
+                { child_id: selectedChildId, lesson_id: selectedLesson, date: bookingDate },
+                { headers }
+            );
+            alert('✅ Запись успешно оформлена!');
+            setShowBooking(false);
+            setSelectedLesson('');
+            setBookingDate('');
+            await loadChildData(selectedChildId);
+        } catch (err) {
+            alert(err.response?.data?.error || 'Ошибка записи');
+        }
+    };
+
+    // Исправленная функция отмены записи
+    const handleCancelLesson = async (lessonId, date) => {
+        console.log('Cancel attempt:', { lessonId, date, selectedChildId });
+
+        if (!window.confirm('Отменить запись на занятие?')) return;
+
+        try {
+            const token = localStorage.getItem('token');
+
+            // Форматируем дату правильно
+            const formattedDate = new Date(date).toISOString().split('T')[0];
+
+            console.log('Sending DELETE request to:', `${API_URL}/parent/cancel-lesson/${selectedChildId}/${lessonId}/${formattedDate}`);
+
+            const response = await axios.delete(
+                `${API_URL}/parent/cancel-lesson/${selectedChildId}/${lessonId}/${formattedDate}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            console.log('Cancel response:', response.data);
+
+            if (response.data.success) {
+                alert('❌ Запись отменена');
+                // Перезагружаем данные ребёнка
+                await loadChildData(selectedChildId);
+            } else {
+                alert('Ошибка при отмене');
+            }
+        } catch (err) {
+            console.error('Cancel error FULL:', err);
+            console.error('Cancel error response:', err.response?.data);
+            alert('Ошибка отмены: ' + (err.response?.data?.error || err.message));
+        }
+    };
+
+    const currentChild = children.find(c => c.id === selectedChildId) || children[0];
+    const birthDate = currentChild ? new Date(currentChild["Дата рождения"]) : null;
+    const age = birthDate ? Math.floor((new Date() - birthDate) / (1000 * 60 * 60 * 24 * 365)) : 0;
+    const upcomingLessons = childLessons.filter(l => l.is_upcoming === true || l.is_upcoming === 1);
+
+    if (loading) return <div className="loading-screen">Загрузка...</div>;
+    if (error) return <div className="error-screen">Ошибка: {error}</div>;
 
     return (
-        <div className={styles.parentContainer}>
-            <div className={styles.parentCard}>
-                <div className={styles.parentHeader}>
-                    <div className={styles.parentHeaderContent}>
-                        <div className={styles.parentAvatar}>👩</div>
-                        <div className={styles.parentName}>
-                            <h2>{user?.name}</h2>
-                            <p>Мама</p>
-                        </div>
-                        <div className={styles.contactInfo}>
-                            <div>📞 +7 (900) 123-45-67</div>
-                            <div>✉️ {user?.email}</div>
-                            <div>📍 г. Москва, ул. Солнечная, 12</div>
+        <div className="parent-dashboard">
+            <div className="bg-gradient"></div>
+
+            <div className="main-card">
+                <div className="header">
+                    <div className="header-left">
+                        <div className="avatar">👩</div>
+                        <div className="info">
+                            {editingProfile ? (
+                                <div className="edit-form">
+                                    <input value={profileForm.Фамилия || ''} onChange={e => setProfileForm({ ...profileForm, Фамилия: e.target.value })} placeholder="Фамилия" />
+                                    <input value={profileForm.Имя || ''} onChange={e => setProfileForm({ ...profileForm, Имя: e.target.value })} placeholder="Имя" />
+                                    <input value={profileForm.Отчество || ''} onChange={e => setProfileForm({ ...profileForm, Отчество: e.target.value })} placeholder="Отчество" />
+                                    <input value={profileForm.Адрес || ''} onChange={e => setProfileForm({ ...profileForm, Адрес: e.target.value })} placeholder="Адрес" />
+                                    <input value={profileForm.Телефон || ''} onChange={e => setProfileForm({ ...profileForm, Телефон: e.target.value })} placeholder="Телефон" />
+                                    <input value={profileForm.Email || ''} onChange={e => setProfileForm({ ...profileForm, Email: e.target.value })} placeholder="Email" />
+                                    <div className="edit-buttons">
+                                        <button className="btn-save" onClick={handleProfileSave}>Сохранить</button>
+                                        <button className="btn-cancel" onClick={() => setEditingProfile(false)}>Отмена</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <h2>{profile?.Фамилия} {profile?.Имя} {profile?.Отчество}</h2>
+                                    <p className="role">👩‍👧 {profile?.Степень_родства || 'Родитель'}</p>
+                                    <p className="contact">📞 {profile?.Телефон}</p>
+                                    <p className="contact">✉️ {profile?.Email}</p>
+                                    <p className="contact">📍 {profile?.Адрес}</p>
+                                    <button className="btn-edit" onClick={() => setEditingProfile(true)}>✏️ Редактировать профиль</button>
+                                </>
+                            )}
                         </div>
                     </div>
+                    <button className="btn-logout" onClick={logout}>🚪 Выйти</button>
                 </div>
 
-                <div className={styles.parentBody}>
-                    {/* Левая колонка */}
-                    <div>
-                        {/* Выбор ребёнка, если их несколько */}
-                        {children.length > 1 && (
-                            <div className={styles.childSelector}>
-                                <label>Выберите ребёнка: </label>
-                                <select
-                                    value={selectedChildId || ''}
-                                    onChange={(e) => setSelectedChildId(parseInt(e.target.value))}
-                                    style={{ padding: '8px', borderRadius: '20px', marginLeft: '10px' }}
-                                >
-                                    {children.map(c => (
-                                        <option key={c.ID_Ребенка} value={c.ID_Ребенка}>
-                                            {c.Фамилия} {c.Имя}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
+                {children.length > 0 && (
+                    <div className="child-selector">
+                        <span className="selector-label">👶 Выберите ребёнка:</span>
+                        <select value={selectedChildId || ''} onChange={(e) => {
+                            setSelectedChildId(parseInt(e.target.value));
+                            loadChildData(parseInt(e.target.value));
+                        }}>
+                            {children.map(child => (
+                                <option key={child.id} value={child.id}>{child.Фамилия} {child.Имя}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
 
-                        <div className={styles.childCard}>
-                            <div className={styles.childPhoto}>👧</div>
-                            <div className={styles.childName}>{currentChild.Фамилия} {currentChild.Имя}</div>
-                            <div className={styles.childDetails}>{age} лет, группа «{currentChild.Название_Группы}»</div>
-                            <button className={styles.detailsBtn} onClick={() => alert('Детальная информация будет позже')}>Информация о ребёнке →</button>
+                <div className="content">
+                    <div className="left-column">
+                        <div className="card child-card">
+                            <div className="card-icon">👧</div>
+                            <div className="card-body">
+                                <h3>{currentChild?.Фамилия} {currentChild?.Имя} {currentChild?.Отчество}</h3>
+                                <p>🎂 {birthDate ? birthDate.toLocaleDateString() : '—'} ({age} лет)</p>
+                                <p>👥 Группа: {currentChild?.Группа || '—'}</p>
+                                <p>🏢 Филиал: {currentChild?.Филиал || '—'}</p>
+                            </div>
                         </div>
 
-                        <div className={styles.familyCard}>
-                            <div className={styles.familyTitle}>Моя семья</div>
-                            <div className={styles.familyGrid}>
-                                {relatives.map((rel, idx) => (
-                                    <div key={idx} className={styles.relativeCard}>
-                                        <div className={styles.relativeAvatar}>{rel.Имя?.[0] || '?'}</div>
-                                        <div className={styles.relativeInfo}>
-                                            <strong>{rel.Фамилия} {rel.Имя}</strong>
-                                            <span>{rel.Статус}</span>
+                        <div className="card family-card">
+                            <div className="card-icon">👨‍👩‍👧‍👦</div>
+                            <div className="card-body">
+                                <h3>Моя семья</h3>
+                                <div className="family-list">
+                                    {relatives.map((rel, idx) => (
+                                        <div key={idx} className="family-item">
+                                            <span className="family-avatar">👤</span>
+                                            <div>
+                                                <div className="family-name">{rel.Фамилия} {rel.Имя}</div>
+                                                <div className="family-role">{rel.status}</div>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
                         </div>
 
-                        <div className={styles.lessonsCard}>
-                            <div className={styles.sectionTitle}>💰 Индивидуальные занятия (ребёнка)</div>
-                            <div className={styles.lessonsGrid}>
-                                {childLessons.map(l => (
-                                    <div key={l.ID_Занятия} className={styles.lessonCard}>
-                                        <span className={styles.lessonName}>{l.Название}</span>
-                                        <span className={styles.lessonPrice}>{l.Стоимость} ₽</span>
-                                    </div>
-                                ))}
-                                {childLessons.length === 0 && <p>Нет записей</p>}
+                        <div className="card total-card">
+                            <div className="card-icon">💰</div>
+                            <div className="card-body">
+                                <h3>Итого к оплате</h3>
+                                <div className="total-amount">{totalCost.toLocaleString()} ₽</div>
                             </div>
-                            <div style={{ marginTop: '0.5rem', fontWeight: 'bold' }}>Итого к оплате: {totalToPay} ₽</div>
-                            <button className={styles.detailsBtn} onClick={() => setShowBooking(true)}>+ Записаться на новое занятие</button>
                         </div>
 
-                        <div className={styles.paymentsCard}>
-                            <div className={styles.sectionTitle}>💳 Мои платежи</div>
-                            <div className={styles.paymentsGrid}>
-                                {payments.map(p => (
-                                    <div key={p.ID_Платежа} className={styles.paymentCard}>
-                                        <span className={styles.paymentName}>{p.lesson_name || 'Занятие'}</span>
-                                        <span className={styles.paymentAmount}>{p.Сумма} ₽</span>
-                                        <span style={{ fontSize: '0.8rem', color: p.Статус === 'Оплачен' ? 'green' : 'orange' }}>{p.Статус}</span>
-                                    </div>
-                                ))}
-                                {payments.length === 0 && <p>Нет платежей</p>}
-                            </div>
-                        </div>
+                        <button className="btn-book" onClick={() => setShowBooking(true)}>➕ Записаться на занятие</button>
                     </div>
 
-                    {/* Правая колонка */}
-                    <div>
-                        <div className={styles.childCard} style={{ marginBottom: '1rem' }}>
-                            <div className={styles.sectionTitle}>📄 Справки</div>
-                            {childCertificates.slice(0, 2).map(c => (
-                                <div key={c.ID_Справки} className={styles.lessonCard}>{c.Тип_справка} ({new Date(c.Дата_начала).toLocaleDateString()})</div>
-                            ))}
-                            <button className={styles.detailsBtn} onClick={() => alert('Все справки')}>Подробнее →</button>
+                    <div className="right-column">
+                        <div className="card lessons-card">
+                            <div className="card-icon">📅</div>
+                            <div className="card-body">
+                                <h3>Ближайшие занятия</h3>
+                                {upcomingLessons.length === 0 ? (
+                                    <p className="empty-text">Нет запланированных занятий</p>
+                                ) : (
+                                    upcomingLessons.map((lesson, idx) => (
+                                        <div key={idx} className="lesson-item">
+                                            <div className="lesson-info">
+                                                <div className="lesson-name">{lesson.Название}</div>
+                                                <div className="lesson-details">
+                                                    <span>📅 {new Date(lesson.date).toLocaleDateString()}</span>
+                                                    <span>👩‍🏫 {lesson.teacher}</span>
+                                                    <span>💰 {lesson.Стоимость} ₽</span>
+                                                </div>
+                                            </div>
+                                            <button className="btn-cancel-lesson" onClick={() => handleCancelLesson(lesson.lesson_id, lesson.date)}>✕ Отменить</button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
                         </div>
-                        <div className={styles.childCard} style={{ marginBottom: '1rem' }}>
-                            <div className={styles.sectionTitle}>💉 Прививки</div>
-                            {childVaccinations.slice(0, 2).map(v => (
-                                <div key={v.ID_Записи_прививки} className={styles.lessonCard}>{v.Название_прививки} – {v.Статус}</div>
-                            ))}
-                            <button className={styles.detailsBtn} onClick={() => alert('Все прививки')}>Подробнее →</button>
+
+                        <div className="card medical-card">
+                            <div className="card-icon">🏥</div>
+                            <div className="card-body">
+                                <h3>Медицинская информация</h3>
+                                <div className="medical-row" onClick={() => setShowCertificatesModal(true)} style={{ cursor: 'pointer' }}>
+                                    <span>📄 Справки ({medicalData.certificates.length})</span>
+                                    <span className="medical-count">Подробнее →</span>
+                                </div>
+                                <div className="medical-row" onClick={() => setShowVaccinationsModal(true)} style={{ cursor: 'pointer' }}>
+                                    <span>💉 Прививки ({medicalData.vaccinations.length})</span>
+                                    <span className="medical-count">Подробнее →</span>
+                                </div>
+                                <div className="medical-row" onClick={() => setShowAllergiesModal(true)} style={{ cursor: 'pointer' }}>
+                                    <span>🌿 Аллергии ({medicalData.allergies.length})</span>
+                                    <span className="medical-count">Подробнее →</span>
+                                </div>
+                            </div>
                         </div>
-                        <div className={styles.childCard} style={{ marginBottom: '1rem' }}>
-                            <div className={styles.sectionTitle}>🌿 Аллергии</div>
-                            {childAllergies.map(a => (
-                                <div key={a.ID_Продукта} className={styles.lessonCard}>🚫 {a.Название_продукта}</div>
-                            ))}
-                            <button className={styles.detailsBtn} onClick={() => alert('Все аллергии')}>Подробнее →</button>
-                        </div>
-                        <div className={styles.childCard}>
-                            <div className={styles.sectionTitle}>📅 Посещаемость</div>
-                            {childAttendance.slice(0, 3).map(a => (
-                                <div key={a.Дата} className={styles.lessonCard}>{new Date(a.Дата).toLocaleDateString()} – {a.Время_прихода?.slice(0, 5)}</div>
-                            ))}
-                            <button className={styles.detailsBtn} onClick={() => alert('Вся посещаемость')}>Подробнее →</button>
+
+                        <div className="card attendance-card">
+                            <div className="card-icon">📊</div>
+                            <div className="card-body">
+                                <h3>Посещаемость</h3>
+                                {attendance.length === 0 ? (
+                                    <p className="empty-text">Нет данных</p>
+                                ) : (
+                                    attendance.slice(0, 5).map((day, idx) => (
+                                        <div key={idx} className="attendance-item">
+                                            <span>{new Date(day.date).toLocaleDateString()}</span>
+                                            <span>🕐 {day.arrival?.slice(0, 5) || '—'}</span>
+                                            <span>🕖 {day.departure?.slice(0, 5) || '—'}</span>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Модалка записи на платное занятие */}
+            {/* Модальное окно для справок */}
+            {showCertificatesModal && (
+                <div className="modal-overlay" onClick={() => setShowCertificatesModal(false)}>
+                    <div className="modal" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3>📄 Справки</h3>
+                            <button className="modal-close" onClick={() => setShowCertificatesModal(false)}>✕</button>
+                        </div>
+                        <div className="modal-body">
+                            {medicalData.certificates.length === 0 ? (
+                                <p>Нет данных о справках</p>
+                            ) : (
+                                medicalData.certificates.map((cert, idx) => (
+                                    <div key={idx} className="medical-item">
+                                        <strong>{cert.type}</strong>
+                                        <p>📅 {new Date(cert.start_date).toLocaleDateString()} - {new Date(cert.end_date).toLocaleDateString()}</p>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Модальное окно для прививок */}
+            {showVaccinationsModal && (
+                <div className="modal-overlay" onClick={() => setShowVaccinationsModal(false)}>
+                    <div className="modal" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3>💉 Прививки</h3>
+                            <button className="modal-close" onClick={() => setShowVaccinationsModal(false)}>✕</button>
+                        </div>
+                        <div className="modal-body">
+                            {medicalData.vaccinations.length === 0 ? (
+                                <p>Нет данных о прививках</p>
+                            ) : (
+                                medicalData.vaccinations.map((vacc, idx) => (
+                                    <div key={idx} className="medical-item">
+                                        <strong>{vacc.name}</strong>
+                                        <p>📅 {new Date(vacc.date).toLocaleDateString()}</p>
+                                        <p>Статус: {vacc.status}</p>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Модальное окно для аллергий */}
+            {showAllergiesModal && (
+                <div className="modal-overlay" onClick={() => setShowAllergiesModal(false)}>
+                    <div className="modal" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3>🌿 Аллергии</h3>
+                            <button className="modal-close" onClick={() => setShowAllergiesModal(false)}>✕</button>
+                        </div>
+                        <div className="modal-body">
+                            {medicalData.allergies.length === 0 ? (
+                                <p>Нет данных об аллергиях</p>
+                            ) : (
+                                medicalData.allergies.map((allergy, idx) => (
+                                    <div key={idx} className="medical-item">
+                                        <strong>🚫 {allergy.product}</strong>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Модальное окно записи */}
             {showBooking && (
-                <div className={styles.modalOverlay} onClick={() => setShowBooking(false)}>
-                    <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-                        <button className={styles.modalClose} onClick={() => setShowBooking(false)}>✕</button>
-                        <h3>Запись на платное занятие</h3>
-                        {children.length > 1 && (
-                            <select
-                                value={selectedChildId || ''}
-                                onChange={(e) => setSelectedChildId(parseInt(e.target.value))}
-                                style={{ width: '100%', padding: '8px', marginBottom: '10px' }}
-                            >
-                                {children.map(c => (
-                                    <option key={c.ID_Ребенка} value={c.ID_Ребенка}>
-                                        {c.Фамилия} {c.Имя}
+                <div className="modal-overlay" onClick={() => setShowBooking(false)}>
+                    <div className="modal" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h3>📝 Запись на занятие</h3>
+                            <button className="modal-close" onClick={() => setShowBooking(false)}>✕</button>
+                        </div>
+                        <div className="modal-body">
+                            <select value={selectedLesson} onChange={(e) => setSelectedLesson(e.target.value)}>
+                                <option value="">Выберите занятие</option>
+                                {availableLessons.map(l => (
+                                    <option key={l.id} value={l.id}>
+                                        {l.Название} – {l.Стоимость} ₽ ({l.День_недели}, {l.Время_начала?.slice(0, 5)})
                                     </option>
                                 ))}
                             </select>
-                        )}
-                        <select
-                            value={selectedLesson}
-                            onChange={(e) => setSelectedLesson(e.target.value)}
-                            style={{ width: '100%', padding: '8px', marginBottom: '10px' }}
-                        >
-                            <option value="">Выберите занятие</option>
-                            {paidLessons.map(l => (
-                                <option key={l.ID_Занятия} value={l.ID_Занятия}>
-                                    {l.Название} – {l.Стоимость} ₽ ({l.День_недели}, {l.Время_начала?.slice(0, 5)})
-                                </option>
-                            ))}
-                        </select>
-                        <input
-                            type="date"
-                            value={bookingDate}
-                            onChange={(e) => setBookingDate(e.target.value)}
-                            style={{ width: '100%', padding: '8px', marginBottom: '10px' }}
-                        />
-                        <button onClick={handleBookLesson} className={styles.detailsBtn}>Записать</button>
+                            {selectedLesson && (
+                                <div className="lesson-info-warning">
+                                    ℹ️ Это занятие проводится по {availableLessons.find(l => l.id === parseInt(selectedLesson))?.День_недели}
+                                </div>
+                            )}
+                            <input type="date" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} min={new Date().toISOString().split('T')[0]} />
+                            <button className="btn-confirm" onClick={handleBookLesson}>✅ Подтвердить запись</button>
+                        </div>
                     </div>
                 </div>
             )}

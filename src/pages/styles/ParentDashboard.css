@@ -1,32 +1,48 @@
-.parent-container {
+/* Основные стили */
+.parent-dashboard {
     min-height: 100vh;
     position: relative;
-    font-family: 'Segoe UI', 'Poppins', sans-serif;
+    font-family: 'Segoe UI', 'Poppins', 'Roboto', sans-serif;
 }
 
-.parent-bg {
+.bg-gradient {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(135deg, #f9d423 0%, #fda085 50%, #9b59b6 100%);
+    background: linear-gradient(135deg, #f9d423 0%, #ff6b6b 50%, #9b59b6 100%);
     z-index: 0;
 }
 
-.parent-card {
+.loading-screen, .error-screen {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 30px 50px;
+    border-radius: 30px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+    z-index: 100;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+/* Главная карточка */
+.main-card {
     position: relative;
     z-index: 1;
     max-width: 1300px;
     margin: 30px auto;
-    background: rgba(255, 255, 255, 0.95);
+    background: white;
     border-radius: 48px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
     overflow: hidden;
-    backdrop-filter: blur(5px);
 }
 
-.parent-header {
+/* Шапка */
+.header {
     background: linear-gradient(135deg, #2c3e50 0%, #8e44ad 100%);
     padding: 30px 40px;
     display: flex;
@@ -41,7 +57,7 @@
     gap: 25px;
 }
 
-.parent-avatar {
+.avatar {
     width: 90px;
     height: 90px;
     background: #f9d423;
@@ -53,18 +69,18 @@
     box-shadow: 0 8px 20px rgba(0,0,0,0.2);
 }
 
-.parent-name h2 {
+.info h2 {
     margin: 0 0 8px 0;
     font-size: 26px;
 }
 
-.parent-role, .parent-contact {
+.role, .contact {
     margin: 5px 0;
     font-size: 14px;
     opacity: 0.9;
 }
 
-.edit-profile-btn {
+.btn-edit {
     margin-top: 12px;
     background: #f9d423;
     border: none;
@@ -76,12 +92,12 @@
     transition: all 0.3s;
 }
 
-    .edit-profile-btn:hover {
+    .btn-edit:hover {
         transform: scale(1.02);
         box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     }
 
-.logout-btn-header {
+.btn-logout {
     background: rgba(255,255,255,0.2);
     border: none;
     padding: 10px 24px;
@@ -92,10 +108,11 @@
     transition: all 0.3s;
 }
 
-    .logout-btn-header:hover {
+    .btn-logout:hover {
         background: rgba(255,255,255,0.3);
     }
 
+/* Выбор ребёнка */
 .child-selector {
     padding: 20px 40px;
     background: #fef9e6;
@@ -119,20 +136,22 @@
     cursor: pointer;
 }
 
-.parent-content {
+/* Контент - 2 колонки */
+.content {
     display: grid;
     grid-template-columns: 1fr 1.2fr;
     gap: 30px;
     padding: 30px 40px;
 }
 
-.left-col, .right-col {
+.left-column, .right-column {
     display: flex;
     flex-direction: column;
     gap: 25px;
 }
 
-.info-card {
+/* Карточки */
+.card {
     background: white;
     border-radius: 28px;
     padding: 20px;
@@ -143,7 +162,7 @@
     border: 1px solid rgba(249, 212, 35, 0.3);
 }
 
-    .info-card:hover {
+    .card:hover {
         transform: translateY(-4px);
         box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
     }
@@ -152,32 +171,34 @@
     font-size: 48px;
 }
 
-.card-content {
+.card-body {
     flex: 1;
 }
 
-    .card-content h3 {
+    .card-body h3 {
         margin: 0 0 12px 0;
         color: #2c3e50;
         font-size: 18px;
     }
 
+/* Карточка ребёнка */
 .child-card {
     background: linear-gradient(135deg, #f9d423 0%, #fda085 100%);
     color: #2c3e50;
 }
 
-    .child-card .card-content h3 {
+    .child-card .card-body h3 {
         color: #2c3e50;
     }
 
+/* Семейное древо */
 .family-list {
     display: flex;
     flex-direction: column;
     gap: 12px;
 }
 
-.family-member {
+.family-item {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -200,13 +221,15 @@
     color: #8e44ad;
 }
 
+/* Итого к оплате */
 .total-amount {
     font-size: 36px;
     font-weight: bold;
     color: #8e44ad;
 }
 
-.book-btn {
+/* Кнопка записи */
+.btn-book {
     width: 100%;
     padding: 14px;
     background: linear-gradient(135deg, #8e44ad 0%, #9b59b6 100%);
@@ -220,11 +243,12 @@
     margin-top: 10px;
 }
 
-    .book-btn:hover {
+    .btn-book:hover {
         transform: scale(1.02);
         box-shadow: 0 6px 20px rgba(142, 68, 173, 0.4);
     }
 
+/* Занятия */
 .lesson-item {
     padding: 12px;
     border-bottom: 1px solid #eee;
@@ -246,7 +270,7 @@
     color: #666;
 }
 
-.cancel-lesson {
+.btn-cancel-lesson {
     background: #ff6b6b;
     border: none;
     padding: 6px 12px;
@@ -256,6 +280,7 @@
     font-size: 12px;
 }
 
+/* Медицинская информация */
 .medical-row {
     display: flex;
     justify-content: space-between;
@@ -271,6 +296,7 @@
     color: #2c3e50;
 }
 
+/* Посещаемость */
 .attendance-item {
     display: flex;
     justify-content: space-between;
@@ -285,6 +311,45 @@
     padding: 20px;
 }
 
+/* Форма редактирования */
+.edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+    .edit-form input {
+        padding: 8px 12px;
+        border-radius: 12px;
+        border: 1px solid #ddd;
+        font-size: 14px;
+    }
+
+.edit-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.btn-save {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn-cancel {
+    background: #ccc;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 30px;
+    cursor: pointer;
+}
+
+/* Модальное окно */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -298,16 +363,16 @@
     z-index: 1000;
 }
 
-.modal-window {
+.modal {
     background: white;
     border-radius: 32px;
     width: 450px;
     max-width: 90%;
     overflow: hidden;
-    animation: modalSlideIn 0.3s ease;
+    animation: slideIn 0.3s ease;
 }
 
-@keyframes modalSlideIn {
+@keyframes slideIn {
     from {
         opacity: 0;
         transform: scale(0.9);
@@ -353,7 +418,7 @@
         font-size: 14px;
     }
 
-.confirm-book {
+.btn-confirm {
     width: 100%;
     padding: 12px;
     background: linear-gradient(135deg, #8e44ad 0%, #9b59b6 100%);
@@ -365,61 +430,13 @@
     cursor: pointer;
 }
 
-.edit-profile-form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-    .edit-profile-form input {
-        padding: 8px 12px;
-        border-radius: 12px;
-        border: none;
-        font-size: 14px;
-    }
-
-.edit-buttons {
-    display: flex;
-    gap: 10px;
-    margin-top: 10px;
-}
-
-.save-btn {
-    background: #f9d423;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 30px;
-    cursor: pointer;
-    font-weight: bold;
-}
-
-.cancel-btn {
-    background: #ccc;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 30px;
-    cursor: pointer;
-}
-
-.parent-loading, .parent-error {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 24px;
-    background: white;
-    padding: 30px;
-    border-radius: 30px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-    z-index: 100;
-}
-
+/* Адаптивность */
 @media (max-width: 900px) {
-    .parent-content {
+    .content {
         grid-template-columns: 1fr;
     }
 
-    .parent-header {
+    .header {
         flex-direction: column;
         gap: 20px;
         text-align: center;
@@ -428,4 +445,62 @@
     .header-left {
         flex-direction: column;
     }
+
+    .card {
+        flex-direction: column;
+        text-align: center;
+    }
+}
+
+/* Медицинские элементы */
+.medical-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+    .medical-row:hover {
+        background: #fef9e6;
+        padding-left: 8px;
+        border-radius: 8px;
+    }
+
+.medical-count {
+    background: #f9d423;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 12px;
+}
+
+.medical-item {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+}
+
+    .medical-item strong {
+        display: block;
+        margin-bottom: 8px;
+        color: #8e44ad;
+    }
+
+    .medical-item p {
+        margin: 5px 0;
+        font-size: 13px;
+        color: #666;
+    }
+
+.lesson-info-warning {
+    background: #fef9e6;
+    padding: 10px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    font-size: 13px;
+    color: #8e44ad;
+    text-align: center;
 }
