@@ -71,16 +71,10 @@ router.put('/my-profile', authMiddleware, async (req, res) => {
     try {
         await pool.query(
             `UPDATE "Сотрудники" 
-             SET 
-                "Фамилия" = COALESCE($1, "Фамилия"),
-                "Имя" = COALESCE($2, "Имя"),
-                "Отчество" = $3,
-                "Телефон" = COALESCE($4, "Телефон"),
-                "Email" = COALESCE($5, "Email"),
-                "Адрес" = COALESCE($6, "Адрес"),
-                "Дата_рождения" = $7
-             WHERE "ID_Сотрудника" = $8`,
-            [Фамилия, Имя, Отчество, Телефон, Email, Адрес, Дата_рождения, req.user.id]
+       SET "Фамилия"=$1, "Имя"=$2, "Отчество"=$3, "Телефон"=$4 
+       WHERE "ID_Сотрудника"=$5`,
+>>>>>>>>> Temporary merge branch 2
+            [Фамилия, Имя, Отчество, Телефон, req.user.id]
         );
         
         res.json({ success: true, message: 'Профиль обновлён' });
@@ -90,8 +84,13 @@ router.put('/my-profile', authMiddleware, async (req, res) => {
     }
 });
 
-// ========== ГРУППЫ СОТРУДНИКА ==========
-router.get('/my-groups', authMiddleware, requireTeacher, async (req, res) => {
+<<<<<<<<< Temporary merge branch 1
+// Получить график работы сотрудника
+router.get('/my-schedule', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'employee') return res.status(403).json({ message: 'Доступ запрещён' });
+=========
+router.get('/my-schedule', authMiddleware, allowEmployeeOrAdmin, async (req, res) => {
+>>>>>>>>> Temporary merge branch 2
     try {
         const result = await pool.query(
             `SELECT 

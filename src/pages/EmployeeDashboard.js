@@ -26,21 +26,29 @@ export default function EmployeeDashboard() {
     });
     const [error, setError] = useState(null);
 
-    const token = localStorage.getItem('token');
-    const isTeacher = profile?.Должность === 'Воспитатель';
-
     useEffect(() => {
-        if (!token) {
-            setError('Нет авторизации');
-            setLoading(false);
-            return;
-        }
-
         const fetchData = async () => {
             try {
+                const token = localStorage.getItem('token');
+<<<<<<<<< Temporary merge branch 1
+                if (!token) { setError('Нет токена авторизации'); setLoading(false); return; }
                 const headers = { Authorization: `Bearer ${token}` };
+                const profileRes = await axios.get('/api/employees/my-profile', { headers });
+                const scheduleRes = await axios.get('/api/employees/my-schedule', { headers });
+=========
+                if (!token) {
+                    setError('Нет токена авторизации');
+                    setLoading(false);
+                    return;
+                }
 
-                const profileRes = await axios.get(`${API_URL}/employees/my-profile`, { headers });
+                console.log('📡 Запрос профиля сотрудника...');
+                const profileRes = await api.get('/employees/my-profile');
+                console.log('✅ Профиль получен:', profileRes.data);
+
+                const scheduleRes = await api.get('/employees/my-schedule');
+
+>>>>>>>>> Temporary merge branch 2
                 setProfile(profileRes.data);
                 setFormData(profileRes.data || {});
 
@@ -62,7 +70,10 @@ export default function EmployeeDashboard() {
                     setLessonPlans(plansRes.data || []);
                 }
             } catch (err) {
-                console.error('Ошибка:', err);
+<<<<<<<<< Temporary merge branch 1
+                setError(err.response?.data?.message || 'Ошибка загрузки');
+=========
+                console.error('❌ Ошибка загрузки:', err);
                 setError(err.response?.data?.message || err.message);
             } finally {
                 setLoading(false);
@@ -71,68 +82,32 @@ export default function EmployeeDashboard() {
         fetchData();
     }, [token]);
 
-    const handleProfileSave = async () => {
+    const handleSave = async () => {
         try {
-            await axios.put(`${API_URL}/employees/my-profile`, formData, {
+<<<<<<<<< Temporary merge branch 1
+            const token = localStorage.getItem('token');
+            await axios.put('/api/employees/my-profile', formData, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+=========
+            await api.put('/employees/my-profile', formData);
+>>>>>>>>> Temporary merge branch 2
             setProfile(formData);
             setEditing(false);
             alert('Профиль обновлён');
         } catch (err) {
-            alert('Ошибка: ' + (err.response?.data?.message || err.message));
+            alert('Ошибка сохранения');
         }
     };
 
-    const handleCreateLesson = async (e) => {
-        e.preventDefault();
-
-        if (!newLesson.group_id) {
-            alert('Выберите группу');
-            return;
-        }
-        if (!newLesson.lesson_type_id) {
-            alert('Выберите тип занятия');
-            return;
-        }
-        if (!newLesson.topic.trim()) {
-            alert('Введите тему');
-            return;
-        }
-        if (!newLesson.date) {
-            alert('Выберите дату');
-            return;
-        }
-        if (!newLesson.time_start) {
-            alert('Выберите время');
-            return;
-        }
-
-        try {
-            await axios.post(`${API_URL}/employees/lesson-plans`, newLesson, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            // Обновляем список
-            const plansRes = await axios.get(`${API_URL}/employees/lesson-plans`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setLessonPlans(plansRes.data);
-
-            // Очищаем форму
-            setNewLesson({
-                group_id: '',
-                lesson_type_id: '',
-                topic: '',
-                date: '',
-                time_start: '',
-                duration_minutes: 30
-            });
-
-            alert('Занятие добавлено!');
-        } catch (err) {
-            alert('Ошибка: ' + (err.response?.data?.message || err.message));
-        }
+<<<<<<<<< Temporary merge branch 1
+=========
+    // ... остальной код (календарь) без изменений
+>>>>>>>>> Temporary merge branch 2
+    const getDaysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
+    const getFirstDayIndex = (y, m) => {
+        let day = new Date(y, m, 1).getDay();
+        return day === 0 ? 6 : day - 1;
     };
 
     const handleDeleteLesson = async (id) => {
@@ -161,9 +136,13 @@ export default function EmployeeDashboard() {
         const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
         const days = [];
 
-        for (let i = 0; i < firstDayIndex; i++) {
-            days.push(<div key={`blank-${i}`} className="compact-day blank"></div>);
-        }
+    if (loading) return <div className="employee-loading">Загрузка...</div>;
+    if (error) return <div className="employee-loading error">{error}</div>;
+<<<<<<<<< Temporary merge branch 1
+    if (!profile) return <div className="employee-loading">Данные не найдены. Обратитесь к администратору.</div>;
+=========
+    if (!profile) return <div className="employee-loading">Данные не найдены</div>;
+>>>>>>>>> Temporary merge branch 2
 
         for (let d = 1; d <= daysCount; d++) {
             const date = new Date(year, month, d);
